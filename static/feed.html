@@ -4,153 +4,32 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>PawRank — Community Feed</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="/static/style.css"/>
+  <link rel="stylesheet" href="/static/feed.css"/>
   <style>
-    .feed-layout{
-      max-width:600px;
-      margin:0 auto;
-      padding:20px 16px 60px;
+    .mission-toast{
+      position:fixed;top:80px;right:20px;
+      background:linear-gradient(135deg,#00c896,#00a87a);
+      color:#fff;border-radius:14px;padding:12px 16px;
+      font-size:13px;font-weight:800;z-index:999;
+      opacity:0;transform:translateX(20px);
+      transition:opacity .3s,transform .3s;
+      pointer-events:none;max-width:260px;
     }
-    .theme-bar{
-      background:linear-gradient(135deg,#ff6b6b,#ff8e53);
-      border-radius:14px;
-      padding:14px 20px;
-      color:#fff;
-      margin-bottom:20px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-    }
-    .theme-bar-left .theme-label{
-      font-size:10px;font-weight:800;
-      letter-spacing:2px;text-transform:uppercase;opacity:.85;
-    }
-    .theme-bar-left .theme-name{font-size:16px;font-weight:900}
-    .theme-bar-right{font-size:28px;opacity:.7}
-
-    /* POST CARD */
-    .post-card{
-      background:#fff;
-      border:1.5px solid var(--border);
-      border-radius:16px;
-      overflow:hidden;
-      margin-bottom:20px;
-    }
-    .post-header{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:12px 16px;
-    }
-    .post-avatar{
-      width:38px;height:38px;
-      border-radius:50%;
-      background:var(--bg);
-      display:flex;align-items:center;justify-content:center;
-      font-size:20px;flex-shrink:0;
-      overflow:hidden;
-    }
-    .post-avatar img{width:100%;height:100%;object-fit:cover}
-    .post-username{font-size:13px;font-weight:800}
-    .post-location{font-size:11px;color:var(--muted)}
-    .post-date{font-size:11px;color:var(--muted);margin-left:auto}
-
-    .post-image{
-      width:100%;
-      aspect-ratio:1/1;
-      object-fit:cover;
-      display:block;
-    }
-
-    .post-actions{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      padding:12px 16px 8px;
-    }
-    .action-btn{
-      display:flex;align-items:center;gap:5px;
-      background:none;border:none;cursor:pointer;
-      font-size:13px;font-weight:800;
-      font-family:'Nunito',sans-serif;
-      color:var(--text);padding:0;
-      transition:transform .1s;
-    }
-    .action-btn:active{transform:scale(.9)}
-    .action-btn.liked{color:var(--brand)}
-    .like-count{font-size:13px;font-weight:900}
-
-    .post-caption{
-      padding:0 16px 8px;
-      font-size:13px;line-height:1.5;
-    }
-    .post-caption strong{font-weight:800;margin-right:5px}
-
-    /* COMMENTS */
-    .comments-section{padding:0 16px 12px}
-    .view-comments{
-      font-size:12px;color:var(--muted);font-weight:700;
-      cursor:pointer;margin-bottom:6px;display:block;
-    }
-    .comment-list{margin-bottom:6px}
-    .comment-item{
-      font-size:12px;line-height:1.5;margin-bottom:4px;
-    }
-    .comment-item strong{font-weight:800;margin-right:4px}
-    .comment-time{font-size:10px;color:var(--muted);margin-left:4px}
-
-    .comment-input-row{
-      display:flex;align-items:center;gap:8px;
-      border-top:1px solid var(--border);
-      padding:10px 16px;
-    }
-    .comment-input{
-      flex:1;border:none;outline:none;
-      font-size:13px;font-family:'Nunito',sans-serif;
-      background:transparent;color:var(--text);
-    }
-    .comment-input::placeholder{color:var(--muted)}
-    .comment-post-btn{
-      font-size:12px;font-weight:800;color:var(--brand2);
-      background:none;border:none;cursor:pointer;
-      font-family:'Nunito',sans-serif;
-    }
-
-    /* NAV */
-    .bottom-nav{
-      position:fixed;bottom:0;left:0;right:0;
-      background:#fff;border-top:1.5px solid var(--border);
-      display:flex;justify-content:space-around;
-      padding:10px 0 14px;z-index:100;
-    }
-    .bottom-btn{
-      display:flex;flex-direction:column;align-items:center;gap:2px;
-      background:none;border:none;cursor:pointer;
-      font-size:10px;font-weight:700;color:var(--muted);
-      font-family:'Nunito',sans-serif;
-    }
-    .bottom-btn.active{color:var(--brand)}
-    .bottom-icon{font-size:22px}
-
-    .empty-feed{
-      text-align:center;padding:60px 20px;color:var(--muted);
-    }
-    .empty-feed .big{font-size:48px;margin-bottom:12px}
-    .empty-feed p{font-size:14px;font-weight:700}
+    .mission-toast.show{opacity:1;transform:translateX(0)}
+    .mission-toast-title{font-size:11px;opacity:.85;margin-bottom:2px}
   </style>
 </head>
 <body>
 
-<!-- TOP NAV -->
 <nav>
   <div class="logo">Paw<span>Rank</span></div>
-  <div style="font-size:13px;font-weight:700;color:var(--muted)" id="nav-user"></div>
+  <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.8)" id="nav-user"></div>
 </nav>
 
 <div class="feed-layout">
 
-  <!-- THEME BAR -->
   <div class="theme-bar">
     <div class="theme-bar-left">
       <div class="theme-label">Theme of the Month</div>
@@ -159,8 +38,7 @@
     <div class="theme-bar-right">🏆</div>
   </div>
 
-  <!-- POSTS -->
-  <div id="feed-list">
+  <div class="feed-grid" id="feed-list">
     <div class="empty-feed">
       <div class="big">🐾</div>
       <p>Loading posts...</p>
@@ -169,7 +47,6 @@
 
 </div>
 
-<!-- BOTTOM NAV -->
 <div class="bottom-nav">
   <button class="bottom-btn active" onclick="location.href='/feed'">
     <span class="bottom-icon">🏠</span>Feed
@@ -186,17 +63,19 @@
 </div>
 
 <div class="toast" id="toast-el"></div>
+<div class="mission-toast" id="mission-toast">
+  <div class="mission-toast-title">🎯 Mission Complete!</div>
+  <div id="mission-toast-body"></div>
+</div>
 
 <script>
-// ── Auth check ────────────────────────────────────────────────────────────
 const ME = localStorage.getItem('pawrank_user');
 if (!ME) window.location.href = '/';
 document.getElementById('nav-user').textContent = '@' + ME;
 
-// ── Liked set (session only) ──────────────────────────────────────────────
 const likedPosts = new Set();
+let allPosts = [];
 
-// ── Toast ─────────────────────────────────────────────────────────────────
 function toast(msg) {
   const el = document.getElementById('toast-el');
   el.textContent = msg;
@@ -204,13 +83,20 @@ function toast(msg) {
   setTimeout(() => el.classList.remove('show'), 2000);
 }
 
-// ── Format date ───────────────────────────────────────────────────────────
+function showMissionToast(missions, bonus) {
+  if (!missions || !missions.length) return;
+  const el   = document.getElementById('mission-toast');
+  const body = document.getElementById('mission-toast-body');
+  body.textContent = missions.join(', ') + ` · +${bonus}pts earned!`;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 4000);
+}
+
 function formatDate(str) {
   const d = new Date(str);
   return d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
 }
 
-// ── Render posts ──────────────────────────────────────────────────────────
 function renderPosts(posts) {
   const el = document.getElementById('feed-list');
   if (!posts.length) {
@@ -218,77 +104,85 @@ function renderPosts(posts) {
       <div class="empty-feed">
         <div class="big">🐾</div>
         <p>No posts yet! Be the first to share.</p>
-        <button class="submit-btn" style="margin-top:16px;width:auto;padding:10px 24px"
+        <button class="submit-btn"
+          style="margin-top:16px;width:auto;padding:10px 24px"
           onclick="location.href='/post'">Share Your Pet ➕</button>
       </div>`;
     return;
   }
 
-  el.innerHTML = posts.map(p => {
+  const sorted   = [...posts].sort((a,b) => b.likes - a.likes);
+  const maxLikes = sorted[0]?.likes || 1;
+
+  el.innerHTML = sorted.map((p, i) => {
     const isLiked = likedPosts.has(p.id);
+    const pct     = Math.round((p.likes / maxLikes) * 100);
+    const medal   = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`;
+
     return `
     <div class="post-card" id="post-${p.id}">
-
-      <div class="post-header">
-        <div class="post-avatar">
-          ${p.pet_image ? `<img src="${p.pet_image}"/>` : '🐾'}
-        </div>
-        <div>
-          <div class="post-username">@${p.username}</div>
-          ${p.location ? `<div class="post-location">📍 ${p.location}</div>` : ''}
-        </div>
-        <div class="post-date">${formatDate(p.created_at)}</div>
-      </div>
-
+      <div class="post-rank-badge">${medal}</div>
       <img class="post-image" src="${p.image_url}" alt="pet post"
         onerror="this.style.display='none'"/>
-
-      <div class="post-actions">
-        <button class="action-btn ${isLiked ? 'liked' : ''}"
-          id="like-btn-${p.id}"
-          onclick="handleLike(${p.id})">
-          ${isLiked ? '❤️' : '🤍'}
-          <span class="like-count" id="like-count-${p.id}">${p.likes}</span>
-        </button>
-        <button class="action-btn" onclick="focusComment(${p.id})">
-          💬 <span id="comment-count-${p.id}">0</span>
-        </button>
+      <div class="post-body">
+        <div class="post-header">
+          <div class="post-avatar">
+            ${p.pet_image ? `<img src="${p.pet_image}"/>` : '🐾'}
+          </div>
+          <div class="post-username">@${p.username}</div>
+          <div class="post-date">${formatDate(p.created_at)}</div>
+        </div>
+        ${p.location ? `<div class="post-location">📍 ${p.location}</div>` : ''}
+        <div class="score-bar-wrap">
+          <div class="score-bar-top">
+            <span class="score-label">Likes</span>
+            <span class="score-value">❤️ ${p.likes}</span>
+          </div>
+          <div class="score-bar">
+            <div class="score-bar-fill" style="width:${pct}%"></div>
+          </div>
+        </div>
+        ${p.caption ? `
+          <div class="post-caption">
+            <strong>@${p.username}</strong>${p.caption}
+          </div>` : ''}
+        <div class="post-actions">
+          <button class="action-btn ${isLiked ? 'liked' : ''}"
+            id="like-btn-${p.id}"
+            onclick="handleLike(${p.id})">
+            ${isLiked ? '❤️' : '🤍'}
+            <span class="like-count" id="like-count-${p.id}">${p.likes}</span>
+          </button>
+          <button class="action-btn" onclick="focusComment(${p.id})">
+            💬 <span id="comment-count-${p.id}">0</span>
+          </button>
+        </div>
       </div>
-
-      ${p.caption ? `
-        <div class="post-caption">
-          <strong>@${p.username}</strong>${p.caption}
-        </div>` : ''}
-
       <div class="comments-section">
         <span class="view-comments" onclick="toggleComments(${p.id})">
           View comments
         </span>
         <div class="comment-list" id="comment-list-${p.id}" style="display:none"></div>
       </div>
-
       <div class="comment-input-row">
         <input class="comment-input" id="comment-input-${p.id}"
           placeholder="Add a comment..."
           onkeydown="if(event.key==='Enter') postComment(${p.id})"/>
         <button class="comment-post-btn" onclick="postComment(${p.id})">Post</button>
       </div>
-
     </div>`;
   }).join('');
 
-  // Load comment counts
   posts.forEach(p => loadCommentCount(p.id));
 }
 
-// ── Load feed ─────────────────────────────────────────────────────────────
 async function loadFeed() {
   const res  = await fetch('/posts');
   const data = await res.json();
-  renderPosts(data.posts);
+  allPosts   = data.posts;
+  renderPosts(allPosts);
 }
 
-// ── Like ──────────────────────────────────────────────────────────────────
 async function handleLike(postId) {
   const res  = await fetch(`/like/${postId}`, {
     method: 'POST',
@@ -296,24 +190,35 @@ async function handleLike(postId) {
     body: JSON.stringify({ username: ME })
   });
   const data = await res.json();
-
-  const btn   = document.getElementById(`like-btn-${postId}`);
-  const count = document.getElementById(`like-count-${postId}`);
+  const btn  = document.getElementById(`like-btn-${postId}`);
 
   if (data.status === 'liked') {
     likedPosts.add(postId);
     btn.classList.add('liked');
     btn.innerHTML = `❤️ <span class="like-count" id="like-count-${postId}">${data.likes}</span>`;
     toast('❤️ Liked!');
+    if (data.missions_completed?.length) {
+      showMissionToast(data.missions_completed, data.bonus_points);
+    }
   } else {
     likedPosts.delete(postId);
     btn.classList.remove('liked');
     btn.innerHTML = `🤍 <span class="like-count" id="like-count-${postId}">${data.likes}</span>`;
     toast('💔 Unliked');
   }
+
+  const post = allPosts.find(p => p.id === postId);
+  if (post) {
+    post.likes = data.likes;
+    const maxLikes = Math.max(...allPosts.map(p => p.likes), 1);
+    const pct  = Math.round((data.likes / maxLikes) * 100);
+    const fill = document.querySelector(`#post-${postId} .score-bar-fill`);
+    const val  = document.querySelector(`#post-${postId} .score-value`);
+    if (fill) fill.style.width = pct + '%';
+    if (val)  val.textContent  = '❤️ ' + data.likes;
+  }
 }
 
-// ── Comments ──────────────────────────────────────────────────────────────
 async function loadCommentCount(postId) {
   const res  = await fetch(`/comments/${postId}`);
   const data = await res.json();
@@ -332,7 +237,7 @@ async function toggleComments(postId) {
             <strong>@${c.username}</strong>${c.content}
             <span class="comment-time">${formatDate(c.created_at)}</span>
           </div>`).join('')
-      : '<div style="font-size:12px;color:var(--muted)">No comments yet</div>';
+      : '<div style="font-size:11px;color:#6b7db3">No comments yet</div>';
     list.style.display = 'block';
   } else {
     list.style.display = 'none';
@@ -363,13 +268,16 @@ async function postComment(postId) {
   const countEl = document.getElementById(`comment-count-${postId}`);
   if (countEl) countEl.textContent = data.comments.length;
   toast('💬 Comment posted!');
+
+  if (data.missions_completed?.length) {
+    showMissionToast(data.missions_completed, data.bonus_points);
+  }
 }
 
 function focusComment(postId) {
   document.getElementById(`comment-input-${postId}`)?.focus();
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────
 loadFeed();
 </script>
 </body>

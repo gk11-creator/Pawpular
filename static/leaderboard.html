@@ -4,104 +4,163 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>PawRank — Top Pets</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="/static/style.css"/>
   <style>
     .lb-layout{
-      max-width:680px;
+      max-width:900px;
       margin:0 auto;
       padding:20px 16px 80px;
+      display:grid;
+      grid-template-columns:1fr 320px;
+      gap:20px;
     }
-    .rank-row.normal{
-      background:#fafafa;
-    }
+    .lb-main{}
+    .lb-side{}
+
+    .rank-row.normal{background:#fafafa}
     .badge-tag{
       display:inline-block;
       background:linear-gradient(135deg,#FFD700,#FFA500);
-      color:#7a5500;
-      border-radius:20px;
-      padding:1px 8px;
-      font-size:10px;font-weight:800;
+      color:#7a5500;border-radius:20px;
+      padding:1px 8px;font-size:10px;font-weight:800;
       margin-top:2px;margin-left:4px;
     }
-    .rank-row.silver .badge-tag{
-      background:linear-gradient(135deg,#C0C0C0,#a8a8a8);
-      color:#444;
+    .viral-tag{
+      display:inline-block;
+      background:linear-gradient(135deg,#ff6b35,#ff4500);
+      color:#fff;border-radius:20px;
+      padding:1px 8px;font-size:10px;font-weight:800;
+      margin-top:2px;margin-left:4px;
     }
-    .rank-row.bronze .badge-tag{
-      background:linear-gradient(135deg,#CD7F32,#b86e22);
-      color:#fff;
+    .bonus-tag{
+      display:inline-block;
+      background:linear-gradient(135deg,#00c896,#00a87a);
+      color:#fff;border-radius:20px;
+      padding:1px 8px;font-size:10px;font-weight:800;
+      margin-top:2px;margin-left:4px;
     }
-    .hot-section{
+    .score-breakdown{
+      font-size:10px;color:var(--muted);
+      margin-top:2px;
+    }
+
+    .side-card{
       background:#fff;
       border:1.5px solid var(--border);
       border-radius:16px;
       padding:16px;
-      margin-bottom:20px;
+      margin-bottom:16px;
     }
-    .hot-header{
-      display:flex;
-      align-items:center;
+    .side-card-title{
+      font-size:13px;font-weight:900;
+      margin-bottom:12px;
+      display:flex;align-items:center;
       justify-content:space-between;
-      margin-bottom:10px;
     }
-    .hot-title{font-size:14px;font-weight:900}
     .reset-badge{
-      background:#f0fdf4;
-      color:#166534;
-      border-radius:20px;
-      padding:3px 10px;
-      font-size:11px;font-weight:700;
-      font-family:monospace;
+      background:#f0fdf4;color:#166534;
+      border-radius:20px;padding:3px 10px;
+      font-size:10px;font-weight:700;font-family:monospace;
     }
+
+    .mission-item{
+      display:flex;align-items:center;gap:10px;
+      padding:9px 0;
+      border-bottom:1px solid var(--border);
+    }
+    .mission-item:last-child{border-bottom:none}
+    .mission-icon{font-size:20px;flex-shrink:0}
+    .mission-info{flex:1}
+    .mission-title{font-size:12px;font-weight:800}
+    .mission-desc{font-size:10px;color:var(--muted);margin-top:1px}
+    .mission-bonus{
+      font-size:11px;font-weight:900;
+      color:#00c896;flex-shrink:0;
+    }
+    .mission-done{
+      font-size:18px;flex-shrink:0;
+    }
+    .mission-item.completed{opacity:.6}
+    .mission-item.completed .mission-title{text-decoration:line-through}
+
+    .hot-item{
+      display:flex;align-items:center;gap:8px;
+      padding:8px 0;border-bottom:1px solid var(--border);
+    }
+    .hot-item:last-child{border-bottom:none}
+    .h-rank{font-size:12px;font-weight:900;width:20px;text-align:center;flex-shrink:0}
+    .h-emoji{font-size:20px;flex-shrink:0}
+    .h-info{flex:1;min-width:0}
+    .h-name{font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .h-owner{font-size:10px;color:var(--muted)}
+    .h-bar{height:3px;background:#f0f0f0;border-radius:2px;margin-top:3px}
+    .h-bar-fill{height:100%;background:linear-gradient(90deg,#ff6b35,#ff4500);border-radius:2px;transition:width .35s}
+    .h-count{font-size:11px;font-weight:900;color:#ff6b35;flex-shrink:0}
   </style>
 </head>
 <body>
 
 <nav>
   <div class="logo">Paw<span>Rank</span></div>
-  <div style="font-size:13px;font-weight:700;color:var(--muted)" id="nav-user"></div>
+  <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.8)" id="nav-user"></div>
 </nav>
 
 <div class="lb-layout">
 
-  <!-- BANNER -->
-  <div class="banner">
-    <div class="banner-label">Monthly Rankings · April 2026</div>
-    <div class="banner-title">🏆 Top Pets Leaderboard</div>
-    <div class="banner-row">
-      <div class="banner-pill"><span class="live-dot"></span>Live</div>
-      <div class="banner-pill" id="entry-count">— entries</div>
-      <div class="banner-pill">Resets May 1</div>
-    </div>
-  </div>
-
-  <!-- HOT WINDOW -->
-  <div class="hot-section">
-    <div class="hot-header">
-      <div class="hot-title">🔥 Today's Hot Pets</div>
-      <div class="reset-badge">Resets in <span id="hot-timer">00:00:00</span></div>
-    </div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
-      Most liked in the last 24 hours
-    </div>
-    <div id="hot-list">
-      <div style="text-align:center;padding:16px;color:var(--muted);font-size:12px">
-        No hot activity yet. Start liking! 🤍
+  <!-- LEFT: MAIN LEADERBOARD -->
+  <div class="lb-main">
+    <div class="banner">
+      <div class="banner-label">Monthly Rankings · April 2025</div>
+      <div class="banner-title">🏆 Top Pets Leaderboard</div>
+      <div class="banner-row">
+        <div class="banner-pill"><span class="live-dot"></span>Live</div>
+        <div class="banner-pill" id="entry-count">— entries</div>
+        <div class="banner-pill">Resets May 1</div>
       </div>
     </div>
+
+    <div class="board-header">
+      <div>Rank</div>
+      <div>Pet</div>
+      <div style="text-align:right">Score</div>
+    </div>
+    <div id="rank-list"><div class="loading">Loading rankings...</div></div>
   </div>
 
-  <!-- BOARD HEADER -->
-  <div class="board-header">
-    <div>Rank</div>
-    <div>Pet</div>
-    <div style="text-align:right">Likes</div>
-  </div>
+  <!-- RIGHT: SIDEBAR -->
+  <div class="lb-side">
 
-  <!-- RANK LIST -->
-  <div id="rank-list">
-    <div class="loading">Loading rankings...</div>
+    <!-- MISSIONS -->
+    <div class="side-card">
+      <div class="side-card-title">
+        🎯 Daily Missions
+        <span class="reset-badge">Resets at midnight</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
+        Complete missions to earn bonus points!
+      </div>
+      <div id="mission-list">
+        <div class="loading">Loading missions...</div>
+      </div>
+    </div>
+
+    <!-- HOT RIGHT NOW -->
+    <div class="side-card">
+      <div class="side-card-title">
+        🔥 Viral Right Now
+        <span class="reset-badge" id="hot-timer">00:00:00</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
+        Trending in the last 24 hours
+      </div>
+      <div id="hot-list">
+        <div style="text-align:center;padding:16px;color:var(--muted);font-size:12px">
+          No viral activity yet 🔥
+        </div>
+      </div>
+    </div>
+
   </div>
 
 </div>
@@ -125,29 +184,24 @@
 <div class="toast" id="toast-el"></div>
 
 <script>
-// ── Auth ──────────────────────────────────────────────────────────────────
 const ME = localStorage.getItem('pawrank_user');
 if (!ME) window.location.href = '/';
 document.getElementById('nav-user').textContent = '@' + ME;
 
-// ── Toast ─────────────────────────────────────────────────────────────────
+const PET_EMOJI = {Dog:'🐕',Cat:'🐈',Rabbit:'🐰',Hamster:'🐹',Bird:'🐦',Other:'🐾'};
+const MEDALS    = ['🥇','🥈','🥉'];
+const PAGE_SIZE = 20;
+
+let allEntries = [];
+let shownCount = PAGE_SIZE;
+
 function toast(msg) {
   const el = document.getElementById('toast-el');
   el.textContent = msg;
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2000);
+  setTimeout(() => el.classList.remove('show'), 2500);
 }
 
-// ── Constants ─────────────────────────────────────────────────────────────
-const PET_EMOJI = { Dog:'🐕', Cat:'🐈', Rabbit:'🐰', Hamster:'🐹', Bird:'🐦', Other:'🐾' };
-const BG_COLORS = ['#fff5f5','#f0fff8','#f0f5ff','#fffbf0','#fdf0ff','#f0faff'];
-const MEDALS    = ['🥇','🥈','🥉'];
-const PAGE_SIZE = 20;
-
-let allEntries  = [];
-let shownCount  = PAGE_SIZE;
-
-// ── Midnight countdown ────────────────────────────────────────────────────
 function getNextMidnight() {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0).getTime();
@@ -165,20 +219,16 @@ function tickCountdown() {
     `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 
-// ── Load leaderboard ──────────────────────────────────────────────────────
 async function loadLeaderboard() {
   const res  = await fetch('/api/leaderboard?limit=200');
   const data = await res.json();
   allEntries = data.leaderboard || [];
-
   const countEl = document.getElementById('entry-count');
   if (countEl) countEl.textContent = data.total_entries + ' entries';
-
   renderRankList();
   renderHotList();
 }
 
-// ── Render rank list ──────────────────────────────────────────────────────
 function renderRankList() {
   const el      = document.getElementById('rank-list');
   const visible = allEntries.slice(0, shownCount);
@@ -192,31 +242,38 @@ function renderRankList() {
   el.innerHTML = visible.map((e, i) => {
     const cls    = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : 'normal';
     const emoji  = PET_EMOJI[e.pet_type] || '🐾';
-    const bg     = i < 3 ? BG_COLORS[i] : '#f5f5f5';
     const avatar = e.pet_image
       ? `<img src="${e.pet_image}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
       : emoji;
-    const badge  = i === 0 ? '🥇 Gold Champion'
-                 : i === 1 ? '🥈 Silver'
-                 : i === 2 ? '🥉 Bronze'
-                 : '';
+    const badge  = i === 0 ? '🥇 Gold' : i === 1 ? '🥈 Silver' : i === 2 ? '🥉 Bronze' : '';
+    const isViral = e.viral_score > e.total_likes;
+    const hasBonus = e.bonus_points > 0;
 
     return `
       <div class="rank-row ${cls}" style="cursor:pointer"
         onclick="location.href='/profile?u=${e.username}'">
         <div class="rank-num">${MEDALS[i] || (i + 1)}</div>
         <div class="rank-pet">
-          <div class="pet-av" style="background:${bg}">${avatar}</div>
+          <div class="pet-av">${avatar}</div>
           <div>
             <div class="pet-name">${e.pet_name || e.username}</div>
             <div class="pet-owner">@${e.username}</div>
-            ${e.pet_type ? `<span class="type-tag">${e.pet_type}</span>` : ''}
-            ${badge ? `<span class="badge-tag">${badge}</span>` : ''}
+            <div>
+              ${e.pet_type ? `<span class="type-tag">${e.pet_type}</span>` : ''}
+              ${badge ? `<span class="badge-tag">${badge}</span>` : ''}
+              ${isViral ? `<span class="viral-tag">🔥 Viral</span>` : ''}
+              ${hasBonus ? `<span class="bonus-tag">+${e.bonus_points} bonus</span>` : ''}
+            </div>
+            <div class="score-breakdown">
+              ❤️ ${e.total_likes} likes
+              ${isViral ? `· 🔥 ${e.viral_score} viral` : ''}
+              ${hasBonus ? `· ⭐ ${e.bonus_points} mission pts` : ''}
+            </div>
           </div>
         </div>
         <div class="score-col">
-          <div class="score-num">❤️ ${e.total_likes}</div>
-          <div class="score-lbl">likes</div>
+          <div class="score-num">⭐ ${e.total_score}</div>
+          <div class="score-lbl">total score</div>
         </div>
       </div>`;
   }).join('');
@@ -224,13 +281,12 @@ function renderRankList() {
   renderLoadMore(allEntries.length > shownCount);
 }
 
-// ── Load More ─────────────────────────────────────────────────────────────
 function renderLoadMore(show) {
   let btn = document.getElementById('load-more-btn');
   if (!btn) {
     btn = document.createElement('div');
     btn.id = 'load-more-btn';
-    btn.style.cssText = 'text-align:center;margin-top:16px;padding-bottom:8px';
+    btn.style.cssText = 'text-align:center;margin-top:16px';
     document.getElementById('rank-list').after(btn);
   }
   btn.innerHTML = show ? `
@@ -247,35 +303,52 @@ function loadMore() {
   renderRankList();
 }
 
-// ── Hot list (today's likes — client side) ────────────────────────────────
+async function loadMissions() {
+  const res  = await fetch(`/missions/${ME}`);
+  const data = await res.json();
+  const el   = document.getElementById('mission-list');
+
+  if (!data.missions.length) {
+    el.innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px">No missions today</div>';
+    return;
+  }
+
+  el.innerHTML = data.missions.map(m => `
+    <div class="mission-item ${m.completed ? 'completed' : ''}">
+      <div class="mission-icon">${m.title.split(' ')[0]}</div>
+      <div class="mission-info">
+        <div class="mission-title">${m.title.split(' ').slice(1).join(' ')}</div>
+        <div class="mission-desc">${m.description}</div>
+      </div>
+      <div class="mission-bonus">+${m.bonus_points}pts</div>
+      <div class="mission-done">${m.completed ? '✅' : '⬜'}</div>
+    </div>
+  `).join('');
+}
+
 let hotLog = JSON.parse(sessionStorage.getItem('pawrank_hot') || '{}');
 
 function renderHotList() {
-  const el = document.getElementById('hot-list');
+  const el     = document.getElementById('hot-list');
   const cutoff = getNextMidnight() - 24 * 60 * 60 * 1000;
 
   const scored = allEntries
-    .map(e => {
-      const times = hotLog[e.username] || [];
-      const hot   = times.filter(t => t >= cutoff).length;
-      return { ...e, hot };
-    })
-    .filter(e => e.hot > 0)
-    .sort((a, b) => b.hot - a.hot)
+    .filter(e => e.viral_score > 0)
+    .sort((a, b) => b.viral_score - a.viral_score)
     .slice(0, 10);
 
   if (!scored.length) {
     el.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px">
-      No hot activity yet. Start liking! 🤍</div>`;
+      No viral activity yet 🔥</div>`;
     return;
   }
 
-  const max = scored[0].hot;
+  const max = scored[0].viral_score;
   el.innerHTML = scored.map((e, i) => {
-    const pct   = Math.round(e.hot / max * 100);
+    const pct   = Math.round(e.viral_score / max * 100);
     const emoji = PET_EMOJI[e.pet_type] || '🐾';
     return `
-      <div class="hot-item ${i < 3 ? 'top3' : ''}">
+      <div class="hot-item">
         <div class="h-rank">${MEDALS[i] || (i+1)}</div>
         <div class="h-emoji">${emoji}</div>
         <div class="h-info">
@@ -283,14 +356,16 @@ function renderHotList() {
           <div class="h-owner">@${e.username}</div>
           <div class="h-bar"><div class="h-bar-fill" style="width:${pct}%"></div></div>
         </div>
-        <div class="h-count">+${e.hot} 🔥</div>
+        <div class="h-count">🔥 ${e.viral_score}</div>
       </div>`;
   }).join('');
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────
 loadLeaderboard();
+loadMissions();
 setInterval(tickCountdown, 1000);
+setInterval(loadLeaderboard, 15000);
+setInterval(loadMissions, 30000);
 tickCountdown();
 </script>
 </body>

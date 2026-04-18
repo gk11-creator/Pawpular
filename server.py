@@ -1,9 +1,4 @@
-"""
-PawRank - Pet Leaderboard Server
-FastAPI REST API | Hackathon Submission
-"""
-
-from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Form, Depends
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
@@ -16,11 +11,11 @@ import os
 import shutil
 import uuid
 import hashlib
+from datetime import datetime, timedelta
 
-# ── Setup ──────────────────────────────────────────────────────────────────
 os.makedirs("uploads", exist_ok=True)
 
-app = FastAPI(title="PawRank API", version="2.0.0")
+app = FastAPI(title="PawRank API", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,7 +27,6 @@ app.add_middleware(
 app.mount("/static",  StaticFiles(directory="static"),  name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# ── Database ───────────────────────────────────────────────────────────────
 def get_db():
     conn = sqlite3.connect("pawrank.db")
     conn.row_factory = sqlite3.Row
@@ -50,9 +44,9 @@ def init_db():
             pet_year     INTEGER,
             pet_bio      TEXT,
             pet_image    TEXT,
+            bonus_points INTEGER DEFAULT 0,
             created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
         );
-
         CREATE TABLE IF NOT EXISTS posts (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
             username     TEXT NOT NULL,
@@ -60,16 +54,17 @@ def init_db():
             location     TEXT,
             image_url    TEXT NOT NULL,
             likes        INTEGER DEFAULT 0,
+            viral_score  REAL DEFAULT 0,
             theme        TEXT DEFAULT 'Bravest Pet',
             created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
         );
-
         CREATE TABLE IF NOT EXISTS likes (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
             post_id      INTEGER,
             username     TEXT,
-            PRIMARY KEY (post_id, username)
+            created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(post_id, username)
         );
-
         CREATE TABLE IF NOT EXISTS comments (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
             post_id      INTEGER NOT NULL,
@@ -77,27 +72,181 @@ def init_db():
             content      TEXT NOT NULL,
             created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS missions (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            title        TEXT NOT NULL,
+            description  TEXT NOT NULL,
+            mission_type TEXT NOT NULL,
+            target_value INTEGER NOT NULL,
+            bonus_points INTEGER NOT NULL,
+            date         TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS mission_completions (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            mission_id   INTEGER NOT NULL,
+            username     TEXT NOT NULL,
+            completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(mission_id, username)
+        );
     """)
     conn.commit()
     conn.close()
+    
 
 init_db()
 
-# ── Performance ────────────────────────────────────────────────────────────
 endpoint_times: dict[str, list[float]] = {
     "add": [], "remove": [], "leaderboard": [], "info": [], "performance": []
 }
+
 def track(endpoint: str, fn):
     t0 = time.perf_counter()
     result = fn()
     endpoint_times[endpoint].append((time.perf_counter() - t0) * 1000)
     return result
 
-# ── Helpers ────────────────────────────────────────────────────────────────
 def hash_password(pw: str) -> str:
     return hashlib.sha256(pw.encode()).hexdigest()
 
-# ── Models ─────────────────────────────────────────────────────────────────
+def today_str() -> str:
+    return datetime.now().strftime('%Y-%m-%d')
+
+def generate_daily_missions():
+    conn = get_db()
+    today = today_str()
+    existing = conn.execute(
+        "SELECT id FROM missions WHERE date=?", (today,)
+    ).fetchone()
+    if not existing:
+        missions = [
+            ("📸 Daily Post",        "Upload 1 post today",                     "post_today",      1,  5),
+            ("❤️ Like Spree",         "Like 5 different posts today",            "likes_given",     5,  5),
+            ("💬 Chatterbox",         "Leave 3 comments today",                  "comments_given",  3,  5),
+            ("🔥 Viral Star",         "Get 5 likes within 1 hour on your post",  "hourly_likes",    5,  10),
+            ("👑 Fan Favorite",       "Get 10 total likes on your post",          "likes_received",  10, 15),
+            ("💌 Conversation King",  "Get 5 comments on your post",             "comments_received",5, 8),
+            ("🦁 Theme Champion",     "Post with this month's theme",            "theme_post",      1,  10),
+            ("🌟 Theme Supporter",    "Like 3 posts with this month's theme",    "theme_likes",     3,  5),
+        ]
+        for title, desc, mtype, target, bonus in missions:
+            conn.execute("""
+                INSERT OR IGNORE INTO missions
+                (title, description, mission_type, target_value, bonus_points, date)
+                VALUES (?,?,?,?,?,?)
+            """, (title, desc, mtype, target, bonus, today))
+        conn.commit()
+    conn.close()
+
+def calculate_viral_score(post_id: int, conn) -> float:
+    one_hour_ago = (datetime.now() - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')
+    total  = conn.execute("SELECT likes FROM posts WHERE id=?", (post_id,)).fetchone()["likes"]
+    recent = conn.execute(
+        "SELECT COUNT(*) as cnt FROM likes WHERE post_id=? AND created_at >= ?",
+        (post_id, one_hour_ago)
+    ).fetchone()["cnt"]
+    if recent >= 50:   multiplier = 3.0
+    elif recent >= 20: multiplier = 2.0
+    elif recent >= 10: multiplier = 1.5
+    else:              multiplier = 1.0
+    return round(total + (recent * multiplier), 2)
+
+def check_and_complete_mission(username: str, mission_type: str, conn) -> tuple:
+    today = today_str()
+    one_hour_ago = (datetime.now() - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')
+
+    mission = conn.execute(
+        "SELECT * FROM missions WHERE date=? AND mission_type=?",
+        (today, mission_type)
+    ).fetchone()
+    if not mission:
+        return None, 0
+
+    already = conn.execute(
+        "SELECT id FROM mission_completions WHERE mission_id=? AND username=?",
+        (mission["id"], username)
+    ).fetchone()
+    if already:
+        return None, 0
+
+    count = 0
+
+    if mission_type == "post_today":
+        count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM posts WHERE username=? AND DATE(created_at)=?",
+            (username, today)
+        ).fetchone()["cnt"]
+
+    elif mission_type == "likes_given":
+        count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM likes WHERE username=? AND DATE(created_at)=?",
+            (username, today)
+        ).fetchone()["cnt"]
+
+    elif mission_type == "comments_given":
+        count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM comments WHERE username=? AND DATE(created_at)=?",
+            (username, today)
+        ).fetchone()["cnt"]
+
+    elif mission_type == "hourly_likes":
+        latest_post = conn.execute(
+            "SELECT id FROM posts WHERE username=? ORDER BY created_at DESC LIMIT 1",
+            (username,)
+        ).fetchone()
+        if latest_post:
+            count = conn.execute(
+                "SELECT COUNT(*) as cnt FROM likes WHERE post_id=? AND created_at >= ?",
+                (latest_post["id"], one_hour_ago)
+            ).fetchone()["cnt"]
+
+    elif mission_type == "likes_received":
+        latest_post = conn.execute(
+            "SELECT likes FROM posts WHERE username=? ORDER BY likes DESC LIMIT 1",
+            (username,)
+        ).fetchone()
+        if latest_post:
+            count = latest_post["likes"]
+
+    elif mission_type == "comments_received":
+        latest_post = conn.execute(
+            "SELECT id FROM posts WHERE username=? ORDER BY created_at DESC LIMIT 1",
+            (username,)
+        ).fetchone()
+        if latest_post:
+            count = conn.execute(
+                "SELECT COUNT(*) as cnt FROM comments WHERE post_id=?",
+                (latest_post["id"],)
+            ).fetchone()["cnt"]
+
+    elif mission_type == "theme_post":
+        count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM posts WHERE username=? AND theme='Bravest Pet' AND DATE(created_at)=?",
+            (username, today)
+        ).fetchone()["cnt"]
+
+    elif mission_type == "theme_likes":
+        count = conn.execute(
+            """SELECT COUNT(*) as cnt FROM likes l
+               JOIN posts p ON l.post_id = p.id
+               WHERE l.username=? AND p.theme='Bravest Pet' AND DATE(l.created_at)=?""",
+            (username, today)
+        ).fetchone()["cnt"]
+
+    if count >= mission["target_value"]:
+        conn.execute(
+            "INSERT OR IGNORE INTO mission_completions (mission_id, username) VALUES (?,?)",
+            (mission["id"], username)
+        )
+        conn.execute(
+            "UPDATE users SET bonus_points = bonus_points + ? WHERE username=?",
+            (mission["bonus_points"], username)
+        )
+        conn.commit()
+        return mission["title"], mission["bonus_points"]
+
+    return None, 0
+
+
 class RegisterBody(BaseModel):
     username: str
     password: str
@@ -114,15 +263,15 @@ class CommentBody(BaseModel):
     content:  str
 
 class UpdateProfile(BaseModel):
-    pet_name:  Optional[str] = None
-    pet_type:  Optional[str] = None
-    pet_year:  Optional[int] = None
-    pet_bio:   Optional[str] = None
+    pet_name: Optional[str] = None
+    pet_type: Optional[str] = None
+    pet_year: Optional[int] = None
+    pet_bio:  Optional[str] = None
 
 class RemoveEntry(BaseModel):
     username: str
 
-# ── Page Routes ────────────────────────────────────────────────────────────
+
 @app.get("/",            include_in_schema=False, response_class=HTMLResponse)
 def page_login():       return FileResponse("static/login.html")
 
@@ -138,8 +287,8 @@ def page_leaderboard(): return FileResponse("static/leaderboard.html")
 @app.get("/profile",     include_in_schema=False, response_class=HTMLResponse)
 def page_profile():     return FileResponse("static/profile.html")
 
-# ── Auth ───────────────────────────────────────────────────────────────────
-@app.post("/register", tags=["Auth"], summary="Register a new user")
+
+@app.post("/register", tags=["Auth"])
 def register(body: RegisterBody):
     conn = get_db()
     try:
@@ -154,7 +303,7 @@ def register(body: RegisterBody):
         conn.close()
         raise HTTPException(400, "Username already exists")
 
-@app.post("/login", tags=["Auth"], summary="Login")
+@app.post("/login", tags=["Auth"])
 def login(body: LoginBody):
     conn = get_db()
     user = conn.execute(
@@ -166,12 +315,12 @@ def login(body: LoginBody):
         raise HTTPException(401, "Invalid username or password")
     return {"status": "ok", "username": user["username"], "pet_name": user["pet_name"]}
 
-# ── Profile ────────────────────────────────────────────────────────────────
-@app.get("/profile/{username}", tags=["Profile"], summary="Get user profile")
+
+@app.get("/profile/{username}", tags=["Profile"])
 def get_profile(username: str):
     conn = get_db()
     user = conn.execute(
-        "SELECT username,pet_name,pet_type,pet_year,pet_bio,pet_image FROM users WHERE username=?",
+        "SELECT username,pet_name,pet_type,pet_year,pet_bio,pet_image,bonus_points FROM users WHERE username=?",
         (username,)
     ).fetchone()
     conn.close()
@@ -179,7 +328,7 @@ def get_profile(username: str):
         raise HTTPException(404, "User not found")
     return dict(user)
 
-@app.put("/profile/{username}", tags=["Profile"], summary="Update profile info")
+@app.put("/profile/{username}", tags=["Profile"])
 def update_profile(username: str, body: UpdateProfile):
     conn = get_db()
     conn.execute("""
@@ -194,26 +343,26 @@ def update_profile(username: str, body: UpdateProfile):
     conn.close()
     return {"status": "updated"}
 
-@app.post("/profile/{username}/image", tags=["Profile"], summary="Upload pet profile image")
+@app.post("/profile/{username}/image", tags=["Profile"])
 async def upload_profile_image(username: str, image: UploadFile = File(...)):
     ext      = image.filename.split(".")[-1]
     filename = f"profile_{username}.{ext}"
-    filepath = f"uploads/{filename}"
-    with open(filepath, "wb") as f:
+    with open(f"uploads/{filename}", "wb") as f:
         shutil.copyfileobj(image.file, f)
     conn = get_db()
-    conn.execute("UPDATE users SET pet_image=? WHERE username=?", (f"/uploads/{filename}", username))
+    conn.execute("UPDATE users SET pet_image=? WHERE username=?",
+                 (f"/uploads/{filename}", username))
     conn.commit()
     conn.close()
     return {"status": "uploaded", "image_url": f"/uploads/{filename}"}
 
-# ── Posts ──────────────────────────────────────────────────────────────────
-@app.post("/upload", tags=["Posts"], summary="Upload a post")
+
+@app.post("/upload", tags=["Posts"])
 async def upload_post(
-    username: str      = Form(...),
-    caption:  str      = Form(""),
-    location: str      = Form(""),
-    theme:    str      = Form("Bravest Pet"),
+    username: str        = Form(...),
+    caption:  str        = Form(""),
+    location: str        = Form(""),
+    theme:    str        = Form("Bravest Pet"),
     image:    UploadFile = File(...)
 ):
     ext      = image.filename.split(".")[-1]
@@ -227,10 +376,24 @@ async def upload_post(
     )
     post_id = cursor.lastrowid
     conn.commit()
-    conn.close()
-    return {"status": "uploaded", "post_id": post_id}
 
-@app.get("/posts", tags=["Posts"], summary="Get all posts")
+    completed_missions = []
+    bonus_total = 0
+    for mtype in ["post_today", "theme_post"]:
+        title, bonus = check_and_complete_mission(username, mtype, conn)
+        if title:
+            completed_missions.append(title)
+            bonus_total += bonus
+
+    conn.close()
+    return {
+        "status": "uploaded",
+        "post_id": post_id,
+        "missions_completed": completed_missions,
+        "bonus_points": bonus_total
+    }
+
+@app.get("/posts", tags=["Posts"])
 def get_posts(username: Optional[str] = None, limit: int = 50, offset: int = 0):
     conn = get_db()
     if username:
@@ -246,7 +409,7 @@ def get_posts(username: Optional[str] = None, limit: int = 50, offset: int = 0):
     conn.close()
     return {"posts": [dict(r) for r in rows]}
 
-@app.post("/like/{post_id}", tags=["Posts"], summary="Like or unlike a post")
+@app.post("/like/{post_id}", tags=["Posts"])
 def like_post(post_id: int, body: LikeBody):
     conn = get_db()
     try:
@@ -255,19 +418,56 @@ def like_post(post_id: int, body: LikeBody):
             (post_id, body.username)
         )
         conn.execute("UPDATE posts SET likes = likes + 1 WHERE id=?", (post_id,))
+        viral = calculate_viral_score(post_id, conn)
+        conn.execute("UPDATE posts SET viral_score=? WHERE id=?", (viral, post_id))
         conn.commit()
-        likes = conn.execute("SELECT likes FROM posts WHERE id=?", (post_id,)).fetchone()[0]
-        conn.close()
-        return {"status": "liked", "likes": likes}
-    except sqlite3.IntegrityError:
-        conn.execute("DELETE FROM likes WHERE post_id=? AND username=?", (post_id, body.username))
-        conn.execute("UPDATE posts SET likes = likes - 1 WHERE id=?", (post_id,))
-        conn.commit()
-        likes = conn.execute("SELECT likes FROM posts WHERE id=?", (post_id,)).fetchone()[0]
-        conn.close()
-        return {"status": "unliked", "likes": likes}
 
-@app.post("/comment/{post_id}", tags=["Posts"], summary="Add a comment")
+        likes = conn.execute(
+            "SELECT likes FROM posts WHERE id=?", (post_id,)
+        ).fetchone()[0]
+
+        post_owner = conn.execute(
+            "SELECT username, theme FROM posts WHERE id=?", (post_id,)
+        ).fetchone()
+
+        completed_missions = []
+        bonus_total = 0
+
+        for mtype in ["likes_given", "theme_likes"]:
+            title, bonus = check_and_complete_mission(body.username, mtype, conn)
+            if title:
+                completed_missions.append(title)
+                bonus_total += bonus
+
+        if post_owner:
+            for mtype in ["hourly_likes", "likes_received"]:
+                title, bonus = check_and_complete_mission(post_owner["username"], mtype, conn)
+                if title:
+                    completed_missions.append(title)
+                    bonus_total += bonus
+
+        conn.close()
+        return {
+            "status": "liked",
+            "likes": likes,
+            "viral_score": viral,
+            "missions_completed": completed_missions,
+            "bonus_points": bonus_total
+        }
+    except sqlite3.IntegrityError:
+        conn.execute("DELETE FROM likes WHERE post_id=? AND username=?",
+                     (post_id, body.username))
+        conn.execute("UPDATE posts SET likes = likes - 1 WHERE id=?", (post_id,))
+        viral = calculate_viral_score(post_id, conn)
+        conn.execute("UPDATE posts SET viral_score=? WHERE id=?", (viral, post_id))
+        conn.commit()
+        likes = conn.execute(
+            "SELECT likes FROM posts WHERE id=?", (post_id,)
+        ).fetchone()[0]
+        conn.close()
+        return {"status": "unliked", "likes": likes, "viral_score": viral}
+
+@app.post("/comment/{post_id}", tags=["Posts"])
 def add_comment(post_id: int, body: CommentBody):
     conn = get_db()
     conn.execute(
@@ -275,14 +475,39 @@ def add_comment(post_id: int, body: CommentBody):
         (post_id, body.username, body.content)
     )
     conn.commit()
+
     comments = conn.execute(
         "SELECT * FROM comments WHERE post_id=? ORDER BY created_at ASC",
         (post_id,)
     ).fetchall()
-    conn.close()
-    return {"status": "commented", "comments": [dict(c) for c in comments]}
 
-@app.get("/comments/{post_id}", tags=["Posts"], summary="Get comments for a post")
+    post_owner = conn.execute(
+        "SELECT username FROM posts WHERE id=?", (post_id,)
+    ).fetchone()
+
+    completed_missions = []
+    bonus_total = 0
+
+    title, bonus = check_and_complete_mission(body.username, "comments_given", conn)
+    if title:
+        completed_missions.append(title)
+        bonus_total += bonus
+
+    if post_owner:
+        title, bonus = check_and_complete_mission(post_owner["username"], "comments_received", conn)
+        if title:
+            completed_missions.append(title)
+            bonus_total += bonus
+
+    conn.close()
+    return {
+        "status": "commented",
+        "comments": [dict(c) for c in comments],
+        "missions_completed": completed_missions,
+        "bonus_points": bonus_total
+    }
+
+@app.get("/comments/{post_id}", tags=["Posts"])
 def get_comments(post_id: int):
     conn = get_db()
     rows = conn.execute(
@@ -292,18 +517,49 @@ def get_comments(post_id: int):
     conn.close()
     return {"comments": [dict(r) for r in rows]}
 
-# ── Leaderboard ────────────────────────────────────────────────────────────
-@app.get("/api/leaderboard", tags=["Leaderboard"], summary="Get leaderboard by likes")
-def get_leaderboard(limit: int = Query(default=20, ge=1, le=200)):
+
+@app.get("/missions", tags=["Missions"])
+def get_missions():
+    conn = get_db()
+    today = today_str()
+    missions = conn.execute(
+        "SELECT * FROM missions WHERE date=?", (today,)
+    ).fetchall()
+    conn.close()
+    return {"missions": [dict(m) for m in missions]}
+
+@app.get("/missions/{username}", tags=["Missions"])
+def get_user_missions(username: str):
+    conn = get_db()
+    today = today_str()
+    missions = conn.execute(
+        "SELECT * FROM missions WHERE date=?", (today,)
+    ).fetchall()
+    result = []
+    for m in missions:
+        completed = conn.execute(
+            "SELECT id FROM mission_completions WHERE mission_id=? AND username=?",
+            (m["id"], username)
+        ).fetchone()
+        result.append({**dict(m), "completed": completed is not None})
+    conn.close()
+    return {"missions": result}
+
+
+@app.get("/api/leaderboard", tags=["Leaderboard"])
+def get_api_leaderboard(limit: int = Query(default=20, ge=1, le=200)):
     def _():
         conn = get_db()
         rows = conn.execute("""
             SELECT p.username, u.pet_name, u.pet_type, u.pet_image,
-                   SUM(p.likes) as total_likes
+                   SUM(p.likes) as total_likes,
+                   MAX(p.viral_score) as top_viral,
+                   COALESCE(u.bonus_points, 0) as bonus_points
             FROM posts p
             LEFT JOIN users u ON p.username = u.username
             GROUP BY p.username
-            ORDER BY total_likes DESC
+            ORDER BY (MAX(p.viral_score) + COALESCE(u.bonus_points, 0)) DESC,
+                     SUM(p.likes) DESC
             LIMIT ?
         """, (limit,)).fetchall()
         conn.close()
@@ -312,45 +568,100 @@ def get_leaderboard(limit: int = Query(default=20, ge=1, le=200)):
             "total_entries": len(rows),
             "leaderboard": [
                 {
-                    "rank":        i + 1,
-                    "medal":       medals[i] if i < 3 else None,
-                    "username":    r["username"],
-                    "pet_name":    r["pet_name"] or r["username"],
-                    "pet_type":    r["pet_type"] or "",
-                    "pet_image":   r["pet_image"] or "",
-                    "total_likes": r["total_likes"] or 0,
-                    "badge":       "🥇 Gold" if i == 0 else "🥈 Silver" if i == 1 else "🥉 Bronze" if i == 2 else ""
+                    "rank":         i + 1,
+                    "medal":        medals[i] if i < 3 else None,
+                    "username":     r["username"],
+                    "pet_name":     r["pet_name"] or r["username"],
+                    "pet_type":     r["pet_type"] or "",
+                    "pet_image":    r["pet_image"] or "",
+                    "total_likes":  r["total_likes"] or 0,
+                    "viral_score":  round(r["top_viral"] or 0, 2),
+                    "bonus_points": r["bonus_points"],
+                    "total_score":  round((r["top_viral"] or 0) + r["bonus_points"], 2),
+                    "badge":        "🥇 Gold" if i == 0 else "🥈 Silver" if i == 1 else "🥉 Bronze" if i == 2 else ""
                 }
                 for i, r in enumerate(rows)
             ]
         }
     return track("leaderboard", _)
 
-# ── Stats ──────────────────────────────────────────────────────────────────
+@app.get("/leaderboard/data", tags=["Leaderboard"], summary="Get top 10 leaderboard")
+def get_leaderboard_data(limit: int = Query(default=10, ge=1, le=200)):
+    def _():
+        conn = get_db()
+        rows = conn.execute("""
+            SELECT p.username, u.pet_name, u.pet_type,
+                   SUM(p.likes) as total_likes,
+                   MAX(p.viral_score) as top_viral,
+                   COALESCE(u.bonus_points, 0) as bonus_points
+            FROM posts p
+            LEFT JOIN users u ON p.username = u.username
+            GROUP BY p.username
+            ORDER BY (MAX(p.viral_score) + COALESCE(u.bonus_points, 0)) DESC,
+                     SUM(p.likes) DESC
+            LIMIT ?
+        """, (limit,)).fetchall()
+        conn.close()
+        medals = ["🥇","🥈","🥉"]
+        return {
+            "total_entries": len(rows),
+            "leaderboard": [
+                {
+                    "rank":         i + 1,
+                    "medal":        medals[i] if i < 3 else f"#{i+1}",
+                    "username":     r["username"],
+                    "pet_name":     r["pet_name"] or r["username"],
+                    "pet_type":     r["pet_type"] or "",
+                    "total_likes":  r["total_likes"] or 0,
+                    "viral_score":  round(r["top_viral"] or 0, 2),
+                    "bonus_points": r["bonus_points"],
+                    "total_score":  round((r["top_viral"] or 0) + r["bonus_points"], 2),
+                }
+                for i, r in enumerate(rows)
+            ]
+        }
+    return track("leaderboard", _)
+
+@app.delete("/remove", tags=["Leaderboard"], summary="Remove user and all posts")
+def remove_entry(body: RemoveEntry):
+    def _():
+        conn = get_db()
+        conn.execute("DELETE FROM posts    WHERE username=?", (body.username,))
+        conn.execute("DELETE FROM users    WHERE username=?", (body.username,))
+        conn.execute("DELETE FROM likes    WHERE username=?", (body.username,))
+        conn.execute("DELETE FROM comments WHERE username=?", (body.username,))
+        conn.commit()
+        conn.close()
+        return {"status": "removed", "username": body.username}
+    return track("remove", _)
+
 @app.get("/info", tags=["Statistics"], summary="Get statistics")
 def get_info():
     def _():
         conn = get_db()
-        rows = conn.execute("SELECT likes FROM posts").fetchall()
+        rows = conn.execute("SELECT likes, viral_score FROM posts").fetchall()
         conn.close()
         if not rows:
             raise HTTPException(404, "No posts found")
         scores = sorted(r["likes"] for r in rows)
+        virals = sorted(r["viral_score"] for r in rows)
         n = len(scores)
-        def pct(p):
+        def pct(arr, p):
             idx = p / 100 * (n - 1)
             lo, hi = int(idx), min(int(idx)+1, n-1)
-            return round(scores[lo] + (idx - lo) * (scores[hi] - scores[lo]), 2)
+            return round(arr[lo] + (idx - lo) * (arr[hi] - arr[lo]), 2)
         return {
             "total_posts": n,
             "statistics": {
-                "mean":   round(statistics.mean(scores), 2),
-                "median": round(statistics.median(scores), 2),
-                "min":    min(scores),
-                "max":    max(scores),
-                "q1":     pct(25),
-                "q3":     pct(75),
-                "iqr":    round(pct(75) - pct(25), 2),
+                "mean":      round(statistics.mean(scores), 2),
+                "median":    round(statistics.median(scores), 2),
+                "min":       min(scores),
+                "max":       max(scores),
+                "q1":        pct(scores, 25),
+                "q3":        pct(scores, 75),
+                "iqr":       round(pct(scores, 75) - pct(scores, 25), 2),
+                "avg_viral": round(statistics.mean(virals), 2),
+                "max_viral": max(virals),
             }
         }
     return track("info", _)
@@ -361,24 +672,18 @@ def get_performance():
         out = {}
         for ep, times in endpoint_times.items():
             if times:
-                out[ep] = {"calls": len(times), "avg_ms": round(statistics.mean(times), 3),
-                           "min_ms": round(min(times), 3), "max_ms": round(max(times), 3)}
+                out[ep] = {
+                    "calls":  len(times),
+                    "avg_ms": round(statistics.mean(times), 3),
+                    "min_ms": round(min(times), 3),
+                    "max_ms": round(max(times), 3)
+                }
             else:
                 out[ep] = {"calls": 0, "avg_ms": None, "min_ms": None, "max_ms": None}
         return {"endpoint_performance": out}
     return track("performance", _)
 
-@app.delete("/remove", tags=["Leaderboard"], summary="Remove user and all posts")
-def remove_entry(body: RemoveEntry):
-    def _():
-        conn = get_db()
-        conn.execute("DELETE FROM posts WHERE username=?", (body.username,))
-        conn.execute("DELETE FROM users WHERE username=?", (body.username,))
-        conn.commit()
-        conn.close()
-        return {"status": "removed", "username": body.username}
-    return track("remove", _)
-
+generate_daily_missions()
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)

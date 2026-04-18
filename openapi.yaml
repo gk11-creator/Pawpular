@@ -1,0 +1,320 @@
+openapi: 3.0.3
+info:
+  title: PawRank API
+  description: >
+    A competitive pet leaderboard platform for IU students.
+    Users upload pet photos monthly, community likes drive rankings.
+    Supports stray animal adoption awareness.
+  version: 2.0.0
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+tags:
+  - name: Auth
+    description: User registration and login
+  - name: Posts
+    description: Pet photo posts and likes
+  - name: Leaderboard
+    description: Rankings and leaderboard
+  - name: Statistics
+    description: Analytics and performance metrics
+
+paths:
+
+  /add:
+    post:
+      tags: [Leaderboard]
+      summary: Add or update a leaderboard entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddEntry'
+            example:
+              username: "jiwoo_kim"
+              pet_name: "Bori"
+              pet_type: "Dog"
+              score: 83
+              theme: "Bravest Pet"
+      responses:
+        '200':
+          description: Entry added or updated
+
+  /remove:
+    delete:
+      tags: [Leaderboard]
+      summary: Remove a user and all their posts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveEntry'
+            example:
+              username: "jiwoo_kim"
+      responses:
+        '200':
+          description: Entry removed
+        '404':
+          description: User not found
+
+  /leaderboard:
+    get:
+      tags: [Leaderboard]
+      summary: Get top 10 leaderboard positions
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: Top N leaderboard entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaderboardResponse'
+
+  /info:
+    get:
+      tags: [Statistics]
+      summary: Get quantitative statistics for all entries
+      responses:
+        '200':
+          description: Statistics object
+        '404':
+          description: No entries found
+
+  /performance:
+    get:
+      tags: [Statistics]
+      summary: Get average execution time per endpoint (ms)
+      responses:
+        '200':
+          description: Endpoint performance metrics
+
+  /register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthBody'
+            example:
+              username: "jiwoo_kim"
+              password: "password123"
+      responses:
+        '200':
+          description: User registered
+        '400':
+          description: Username already exists
+
+  /login:
+    post:
+      tags: [Auth]
+      summary: Login with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthBody'
+      responses:
+        '200':
+          description: Login successful
+        '401':
+          description: Invalid credentials
+
+  /upload:
+    post:
+      tags: [Posts]
+      summary: Upload a pet post with image
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                username: { type: string }
+                caption:  { type: string }
+                location: { type: string }
+                theme:    { type: string }
+                image:    { type: string, format: binary }
+      responses:
+        '200':
+          description: Post uploaded successfully
+
+  /posts:
+    get:
+      tags: [Posts]
+      summary: Get all posts (optionally filtered by username)
+      parameters:
+        - name: username
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        '200':
+          description: List of posts
+
+  /like/{post_id}:
+    post:
+      tags: [Posts]
+      summary: Like or unlike a post (1 like per user)
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username: { type: string }
+      responses:
+        '200':
+          description: Liked or unliked
+
+  /comment/{post_id}:
+    post:
+      tags: [Posts]
+      summary: Add a comment to a post
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username: { type: string }
+                content:  { type: string }
+      responses:
+        '200':
+          description: Comment added
+
+  /comments/{post_id}:
+    get:
+      tags: [Posts]
+      summary: Get all comments for a post
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: List of comments
+
+  /api/leaderboard:
+    get:
+      tags: [Leaderboard]
+      summary: Get leaderboard ranked by total likes
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: Leaderboard data
+
+  /profile/{username}:
+    get:
+      tags: [Auth]
+      summary: Get user profile
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: User profile data
+    put:
+      tags: [Auth]
+      summary: Update user profile
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfile'
+      responses:
+        '200':
+          description: Profile updated
+
+components:
+  schemas:
+
+    AuthBody:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string }
+        password: { type: string }
+
+    AddEntry:
+      type: object
+      required: [username, pet_name, pet_type, score]
+      properties:
+        username: { type: string }
+        pet_name: { type: string }
+        pet_type: { type: string }
+        score:    { type: number }
+        theme:    { type: string }
+
+    RemoveEntry:
+      type: object
+      required: [username]
+      properties:
+        username: { type: string }
+
+    UpdateProfile:
+      type: object
+      properties:
+        pet_name: { type: string }
+        pet_type: { type: string }
+        pet_year: { type: integer }
+        pet_bio:  { type: string }
+
+    LeaderboardResponse:
+      type: object
+      properties:
+        total_entries: { type: integer }
+        leaderboard:
+          type: array
+          items:
+            type: object
+            properties:
+              rank:        { type: integer }
+              medal:       { type: string }
+              username:    { type: string }
+              pet_name:    { type: string }
+              total_likes: { type: integer }
