@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PawRank — IU Pet Leaderboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Paw<span>Rank</span><small>IU · 2025</small></div>
+  <div class="nav-right">
+    <button class="nav-tab active" onclick="showPage('rank')">🏆 Rankings</button>
+    <button class="nav-tab" onclick="showPage('stats')">📊 Stats</button>
+    <button class="nav-tab" onclick="showPage('add')">➕ Submit</button>
+  </div>
+</nav>
+
+<div class="app">
+
+  <!-- MAIN -->
+  <div class="main-area">
+
+    <div class="page active" id="page-rank">
+      <div class="banner">
+        <div class="banner-label">Live Leaderboard · April 2025</div>
+        <div class="banner-title">🦁 Bravest Pet — All-Time Rankings</div>
+        <div class="banner-row">
+          <div class="banner-pill"><span class="live-dot"></span>Live</div>
+          <div class="banner-pill" id="entry-count">— entries</div>
+          <div class="banner-pill">Resets May 1</div>
+        </div>
+      </div>
+      <div class="board-header">
+        <div>Rank</div>
+        <div>Pet</div>
+        <div style="text-align:right">Score</div>
+        <div style="text-align:right">Like</div>
+      </div>
+      <div id="rank-list"><div class="loading">Loading...</div></div>
+    </div>
+
+    <div class="page" id="page-stats">
+      <div class="banner banner-purple">
+        <div class="banner-label">Analytics</div>
+        <div class="banner-title">📊 Score Statistics</div>
+      </div>
+      <div class="stats-grid" id="stats-cards">
+        <div class="stat-card span3">Loading...</div>
+      </div>
+      <div class="s-lbl">Endpoint Performance</div>
+      <div class="form-card" id="perf-table"></div>
+      <div class="api-log" id="stats-log">Waiting...</div>
+    </div>
+
+    <div class="page" id="page-add">
+      <div class="s-lbl">Submit Your Pet</div>
+      <div class="form-card">
+        <div class="row2">
+          <div class="field"><label>Username</label><input id="f-user" placeholder="e.g. jiwoo_kim"/></div>
+          <div class="field"><label>Pet Name</label><input id="f-pet" placeholder="e.g. Bori"/></div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Pet Type</label>
+            <select id="f-type">
+              <option>Dog</option><option>Cat</option><option>Rabbit</option>
+              <option>Hamster</option><option>Bird</option><option>Other</option>
+            </select>
+          </div>
+          <div class="field"><label>Score</label><input id="f-score" type="number" placeholder="0–100" min="0" max="100"/></div>
+        </div>
+        <div class="field">
+          <label>Theme</label>
+          <select id="f-theme">
+            <option>Bravest Pet</option><option>Best Outfit</option>
+            <option>Best Matching Song</option><option>Smartest Pet</option>
+            <option>Cutest Pet</option><option>Most Look-alike Owner</option>
+            <option>Best Pose</option>
+          </select>
+        </div>
+        <button class="submit-btn" onclick="submitEntry()">Submit to Leaderboard 🚀</button>
+      </div>
+      <div class="s-lbl">Remove Entry</div>
+      <div class="form-card">
+        <div class="field"><label>Username</label><input id="r-user" placeholder="e.g. jiwoo_kim"/></div>
+        <button class="remove-btn" onclick="removeEntry()">Remove Entry</button>
+      </div>
+      <div class="api-log" id="add-log">No requests yet.</div>
+    </div>
+
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="countdown-box">
+      <div class="cd-label">🔥 Hot window resets in</div>
+      <div class="cd-time" id="hot-timer">30:00</div>
+    </div>
+    <div class="s-title">
+      🔥 Hot Right Now
+      <span class="hot-badge">Top 10</span>
+    </div>
+    <div class="s-sub">Likes in the last 30 min</div>
+    <div id="hot-list"><div class="loading">No hot activity yet.<br/>Start liking! 🤍</div></div>
+
+    <div class="s-divider"></div>
+
+    <div class="s-title" style="margin-bottom:8px">🏠 Strays for Adoption</div>
+    <div class="s-sub">Liked a pet? Help a stray!</div>
+    <div id="stray-list">
+      <div class="stray-row">
+        <span class="stray-emoji">🐕</span>
+        <div class="stray-info"><div class="stray-name">Byeol</div><div class="stray-desc">2yr · Mixed</div></div>
+        <button class="adopt-btn" onclick="toast('💛 Redirecting to adoption!')">Adopt</button>
+      </div>
+      <div class="stray-row">
+        <span class="stray-emoji">🐈</span>
+        <div class="stray-info"><div class="stray-name">Dalkom</div><div class="stray-desc">1yr · Shorthair</div></div>
+        <button class="adopt-btn" onclick="toast('💛 Redirecting to adoption!')">Adopt</button>
+      </div>
+      <div class="stray-row">
+        <span class="stray-emoji">🐕</span>
+        <div class="stray-info"><div class="stray-name">Gureum</div><div class="stray-desc">3yr · Beagle mix</div></div>
+        <button class="adopt-btn" onclick="toast('💛 Redirecting to adoption!')">Adopt</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast-el"></div>
+
+<<script src="/static/api.js"></script>
+<script src="/static/leaderboard.js"></script>
+<script src="/static/hotlist.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
