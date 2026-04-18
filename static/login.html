@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PawRank — Welcome Back</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/style.css"/>
+  <style>
+    .login-wrap{
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:var(--bg);
+    }
+    .login-box{
+      background:#fff;
+      border:1.5px solid var(--border);
+      border-radius:20px;
+      padding:40px 36px;
+      width:100%;
+      max-width:400px;
+    }
+    .login-logo{
+      font-size:28px;
+      font-weight:900;
+      color:var(--brand);
+      text-align:center;
+      margin-bottom:4px;
+    }
+    .login-logo span{color:var(--brand2)}
+    .login-sub{
+      text-align:center;
+      font-size:13px;
+      color:var(--muted);
+      margin-bottom:28px;
+    }
+    .tab-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:6px;
+      margin-bottom:24px;
+    }
+    .tab-btn{
+      padding:9px;
+      border-radius:10px;
+      border:1.5px solid var(--border);
+      background:#fff;
+      font-size:13px;
+      font-weight:800;
+      cursor:pointer;
+      font-family:'Nunito',sans-serif;
+      color:var(--muted);
+      transition:all .15s;
+    }
+    .tab-btn.active{
+      background:var(--brand);
+      color:#fff;
+      border-color:var(--brand);
+    }
+    .error-msg{
+      background:#fff0f0;
+      border:1px solid #ffb3b3;
+      border-radius:9px;
+      padding:9px 12px;
+      font-size:12px;
+      font-weight:700;
+      color:var(--brand);
+      margin-bottom:12px;
+      display:none;
+    }
+    .error-msg.show{display:block}
+    .success-msg{
+      background:#f0fdf4;
+      border:1px solid #86efac;
+      border-radius:9px;
+      padding:9px 12px;
+      font-size:12px;
+      font-weight:700;
+      color:#166534;
+      margin-bottom:12px;
+      display:none;
+    }
+    .success-msg.show{display:block}
+  </style>
+</head>
+<body>
+
+<div class="login-wrap">
+  <div class="login-box">
+
+    <div class="login-logo">Paw<span>Rank</span></div>
+    <div class="login-sub">IU Pet Community · 2025</div>
+
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="switchTab('login')">Sign In</button>
+      <button class="tab-btn" onclick="switchTab('register')">Sign Up</button>
+    </div>
+
+    <div class="error-msg" id="error-msg"></div>
+    <div class="success-msg" id="success-msg"></div>
+
+    <!-- LOGIN FORM -->
+    <div id="form-login">
+      <div class="field">
+        <label>Username</label>
+        <input id="l-user" placeholder="e.g. jiwoo_kim" autocomplete="username"/>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input id="l-pass" type="password" placeholder="••••••••" autocomplete="current-password"/>
+      </div>
+      <button class="submit-btn" onclick="handleLogin()" style="margin-top:8px">
+        Sign In 🐾
+      </button>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div id="form-register" style="display:none">
+      <div class="field">
+        <label>Username</label>
+        <input id="r-user" placeholder="e.g. jiwoo_kim" autocomplete="username"/>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input id="r-pass" type="password" placeholder="••••••••" autocomplete="new-password"/>
+      </div>
+      <div class="field">
+        <label>Confirm Password</label>
+        <input id="r-pass2" type="password" placeholder="••••••••" autocomplete="new-password"/>
+      </div>
+      <button class="submit-btn" onclick="handleRegister()" style="margin-top:8px">
+        Create Account 🚀
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', (tab === 'login' && i === 0) || (tab === 'register' && i === 1));
+  });
+  document.getElementById('form-login').style.display    = tab === 'login'    ? 'block' : 'none';
+  document.getElementById('form-register').style.display = tab === 'register' ? 'block' : 'none';
+  clearMessages();
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.classList.add('show');
+  document.getElementById('success-msg').classList.remove('show');
+}
+
+function showSuccess(msg) {
+  const el = document.getElementById('success-msg');
+  el.textContent = msg;
+  el.classList.add('show');
+  document.getElementById('error-msg').classList.remove('show');
+}
+
+function clearMessages() {
+  document.getElementById('error-msg').classList.remove('show');
+  document.getElementById('success-msg').classList.remove('show');
+}
+
+async function handleLogin() {
+  const username = document.getElementById('l-user').value.trim();
+  const password = document.getElementById('l-pass').value;
+  if (!username || !password) { showError('Please fill in all fields'); return; }
+
+  const res = await fetch('/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  const data = await res.json();
+
+  if (res.ok) {
+    localStorage.setItem('pawrank_user', username);
+    localStorage.setItem('pawrank_pet', data.pet_name || '');
+    window.location.href = '/feed';
+  } else {
+    showError(data.detail || 'Login failed');
+  }
+}
+
+async function handleRegister() {
+  const username = document.getElementById('r-user').value.trim();
+  const password = document.getElementById('r-pass').value;
+  const confirm  = document.getElementById('r-pass2').value;
+
+  if (!username || !password) { showError('Please fill in all fields'); return; }
+  if (password !== confirm)   { showError('Passwords do not match');    return; }
+  if (password.length < 4)    { showError('Password too short (min 4 chars)'); return; }
+
+  const res = await fetch('/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  const data = await res.json();
+
+  if (res.ok) {
+    showSuccess('Account created! Signing you in...');
+    setTimeout(async () => {
+      const res2 = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      if (res2.ok) {
+        localStorage.setItem('pawrank_user', username);
+        window.location.href = '/feed';
+      }
+    }, 1000);
+  } else {
+    showError(data.detail || 'Registration failed');
+  }
+}
+
+// Enter key support
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const loginVisible = document.getElementById('form-login').style.display !== 'none';
+    if (loginVisible) handleLogin();
+    else handleRegister();
+  }
+});
+
+// Redirect if already logged in
+if (localStorage.getItem('pawrank_user')) {
+  window.location.href = '/feed';
+}
+</script>
+</body>
+</html>

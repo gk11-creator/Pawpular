@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PawRank — Top Pets</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/style.css"/>
+  <style>
+    .lb-layout{
+      max-width:680px;
+      margin:0 auto;
+      padding:20px 16px 80px;
+    }
+    .rank-row.normal{
+      background:#fafafa;
+    }
+    .badge-tag{
+      display:inline-block;
+      background:linear-gradient(135deg,#FFD700,#FFA500);
+      color:#7a5500;
+      border-radius:20px;
+      padding:1px 8px;
+      font-size:10px;font-weight:800;
+      margin-top:2px;margin-left:4px;
+    }
+    .rank-row.silver .badge-tag{
+      background:linear-gradient(135deg,#C0C0C0,#a8a8a8);
+      color:#444;
+    }
+    .rank-row.bronze .badge-tag{
+      background:linear-gradient(135deg,#CD7F32,#b86e22);
+      color:#fff;
+    }
+    .hot-section{
+      background:#fff;
+      border:1.5px solid var(--border);
+      border-radius:16px;
+      padding:16px;
+      margin-bottom:20px;
+    }
+    .hot-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:10px;
+    }
+    .hot-title{font-size:14px;font-weight:900}
+    .reset-badge{
+      background:#f0fdf4;
+      color:#166534;
+      border-radius:20px;
+      padding:3px 10px;
+      font-size:11px;font-weight:700;
+      font-family:monospace;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Paw<span>Rank</span><small>IU · 2025</small></div>
+  <div style="font-size:13px;font-weight:700;color:var(--muted)" id="nav-user"></div>
+</nav>
+
+<div class="lb-layout">
+
+  <!-- BANNER -->
+  <div class="banner">
+    <div class="banner-label">Monthly Rankings · April 2025</div>
+    <div class="banner-title">🏆 Top Pets Leaderboard</div>
+    <div class="banner-row">
+      <div class="banner-pill"><span class="live-dot"></span>Live</div>
+      <div class="banner-pill" id="entry-count">— entries</div>
+      <div class="banner-pill">Resets May 1</div>
+    </div>
+  </div>
+
+  <!-- HOT WINDOW -->
+  <div class="hot-section">
+    <div class="hot-header">
+      <div class="hot-title">🔥 Today's Hot Pets</div>
+      <div class="reset-badge">Resets in <span id="hot-timer">00:00:00</span></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
+      Most liked in the last 24 hours
+    </div>
+    <div id="hot-list">
+      <div style="text-align:center;padding:16px;color:var(--muted);font-size:12px">
+        No hot activity yet. Start liking! 🤍
+      </div>
+    </div>
+  </div>
+
+  <!-- BOARD HEADER -->
+  <div class="board-header">
+    <div>Rank</div>
+    <div>Pet</div>
+    <div style="text-align:right">Likes</div>
+  </div>
+
+  <!-- RANK LIST -->
+  <div id="rank-list">
+    <div class="loading">Loading rankings...</div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <button class="bottom-btn" onclick="location.href='/feed'">
+    <span class="bottom-icon">🏠</span>Feed
+  </button>
+  <button class="bottom-btn active" onclick="location.href='/leaderboard'">
+    <span class="bottom-icon">🏆</span>Ranking
+  </button>
+  <button class="bottom-btn" onclick="location.href='/post'">
+    <span class="bottom-icon">➕</span>Post
+  </button>
+  <button class="bottom-btn" onclick="location.href='/profile'">
+    <span class="bottom-icon">👤</span>Profile
+  </button>
+</div>
+
+<div class="toast" id="toast-el"></div>
+
+<script>
+// ── Auth ──────────────────────────────────────────────────────────────────
+const ME = localStorage.getItem('pawrank_user');
+if (!ME) window.location.href = '/';
+document.getElementById('nav-user').textContent = '@' + ME;
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+function toast(msg) {
+  const el = document.getElementById('toast-el');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────
+const PET_EMOJI = { Dog:'🐕', Cat:'🐈', Rabbit:'🐰', Hamster:'🐹', Bird:'🐦', Other:'🐾' };
+const BG_COLORS = ['#fff5f5','#f0fff8','#f0f5ff','#fffbf0','#fdf0ff','#f0faff'];
+const MEDALS    = ['🥇','🥈','🥉'];
+const PAGE_SIZE = 20;
+
+let allEntries  = [];
+let shownCount  = PAGE_SIZE;
+
+// ── Midnight countdown ────────────────────────────────────────────────────
+function getNextMidnight() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0).getTime();
+}
+let hotResetAt = getNextMidnight();
+
+function tickCountdown() {
+  const rem = hotResetAt - Date.now();
+  if (rem <= 0) hotResetAt = getNextMidnight();
+  const h = Math.floor(rem / 3600000);
+  const m = Math.floor((rem % 3600000) / 60000);
+  const s = Math.floor((rem % 60000) / 1000);
+  const el = document.getElementById('hot-timer');
+  if (el) el.textContent =
+    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+// ── Load leaderboard ──────────────────────────────────────────────────────
+async function loadLeaderboard() {
+  const res  = await fetch('/api/leaderboard?limit=200');
+  const data = await res.json();
+  allEntries = data.leaderboard || [];
+
+  const countEl = document.getElementById('entry-count');
+  if (countEl) countEl.textContent = data.total_entries + ' entries';
+
+  renderRankList();
+  renderHotList();
+}
+
+// ── Render rank list ──────────────────────────────────────────────────────
+function renderRankList() {
+  const el      = document.getElementById('rank-list');
+  const visible = allEntries.slice(0, shownCount);
+
+  if (!visible.length) {
+    el.innerHTML = '<div class="loading">No entries yet! Post your pet 🐾</div>';
+    renderLoadMore(false);
+    return;
+  }
+
+  el.innerHTML = visible.map((e, i) => {
+    const cls    = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : 'normal';
+    const emoji  = PET_EMOJI[e.pet_type] || '🐾';
+    const bg     = i < 3 ? BG_COLORS[i] : '#f5f5f5';
+    const avatar = e.pet_image
+      ? `<img src="${e.pet_image}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+      : emoji;
+    const badge  = i === 0 ? '🥇 Gold Champion'
+                 : i === 1 ? '🥈 Silver'
+                 : i === 2 ? '🥉 Bronze'
+                 : '';
+
+    return `
+      <div class="rank-row ${cls}" style="cursor:pointer"
+        onclick="location.href='/profile?u=${e.username}'">
+        <div class="rank-num">${MEDALS[i] || (i + 1)}</div>
+        <div class="rank-pet">
+          <div class="pet-av" style="background:${bg}">${avatar}</div>
+          <div>
+            <div class="pet-name">${e.pet_name || e.username}</div>
+            <div class="pet-owner">@${e.username}</div>
+            ${e.pet_type ? `<span class="type-tag">${e.pet_type}</span>` : ''}
+            ${badge ? `<span class="badge-tag">${badge}</span>` : ''}
+          </div>
+        </div>
+        <div class="score-col">
+          <div class="score-num">❤️ ${e.total_likes}</div>
+          <div class="score-lbl">likes</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  renderLoadMore(allEntries.length > shownCount);
+}
+
+// ── Load More ─────────────────────────────────────────────────────────────
+function renderLoadMore(show) {
+  let btn = document.getElementById('load-more-btn');
+  if (!btn) {
+    btn = document.createElement('div');
+    btn.id = 'load-more-btn';
+    btn.style.cssText = 'text-align:center;margin-top:16px;padding-bottom:8px';
+    document.getElementById('rank-list').after(btn);
+  }
+  btn.innerHTML = show ? `
+    <button onclick="loadMore()"
+      style="background:#fff;border:1.5px solid var(--border);border-radius:20px;
+             padding:10px 28px;font-size:13px;font-weight:800;cursor:pointer;
+             font-family:'Nunito',sans-serif;color:var(--muted)">
+      Load More ↓
+    </button>` : '';
+}
+
+function loadMore() {
+  shownCount += PAGE_SIZE;
+  renderRankList();
+}
+
+// ── Hot list (today's likes — client side) ────────────────────────────────
+let hotLog = JSON.parse(sessionStorage.getItem('pawrank_hot') || '{}');
+
+function renderHotList() {
+  const el = document.getElementById('hot-list');
+  const cutoff = getNextMidnight() - 24 * 60 * 60 * 1000;
+
+  const scored = allEntries
+    .map(e => {
+      const times = hotLog[e.username] || [];
+      const hot   = times.filter(t => t >= cutoff).length;
+      return { ...e, hot };
+    })
+    .filter(e => e.hot > 0)
+    .sort((a, b) => b.hot - a.hot)
+    .slice(0, 10);
+
+  if (!scored.length) {
+    el.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px">
+      No hot activity yet. Start liking! 🤍</div>`;
+    return;
+  }
+
+  const max = scored[0].hot;
+  el.innerHTML = scored.map((e, i) => {
+    const pct   = Math.round(e.hot / max * 100);
+    const emoji = PET_EMOJI[e.pet_type] || '🐾';
+    return `
+      <div class="hot-item ${i < 3 ? 'top3' : ''}">
+        <div class="h-rank">${MEDALS[i] || (i+1)}</div>
+        <div class="h-emoji">${emoji}</div>
+        <div class="h-info">
+          <div class="h-name">${e.pet_name || e.username}</div>
+          <div class="h-owner">@${e.username}</div>
+          <div class="h-bar"><div class="h-bar-fill" style="width:${pct}%"></div></div>
+        </div>
+        <div class="h-count">+${e.hot} 🔥</div>
+      </div>`;
+  }).join('');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+loadLeaderboard();
+setInterval(tickCountdown, 1000);
+tickCountdown();
+</script>
+</body>
+</html>

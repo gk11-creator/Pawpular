@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PawRank — Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/style.css"/>
+  <style>
+    .profile-layout{
+      max-width:600px;
+      margin:0 auto;
+      padding:20px 16px 80px;
+    }
+    .profile-card{
+      background:#fff;
+      border:1.5px solid var(--border);
+      border-radius:20px;
+      padding:24px;
+      margin-bottom:20px;
+      text-align:center;
+    }
+    .profile-avatar-wrap{
+      position:relative;
+      width:90px;
+      margin:0 auto 12px;
+    }
+    .profile-avatar{
+      width:90px;height:90px;
+      border-radius:50%;
+      background:var(--bg);
+      border:3px solid var(--border);
+      display:flex;align-items:center;justify-content:center;
+      font-size:44px;
+      overflow:hidden;
+      cursor:pointer;
+    }
+    .profile-avatar img{
+      width:100%;height:100%;object-fit:cover;
+    }
+    .avatar-edit{
+      position:absolute;bottom:0;right:0;
+      width:26px;height:26px;
+      background:var(--brand);
+      border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:13px;cursor:pointer;
+      border:2px solid #fff;
+    }
+    #avatar-input{display:none}
+
+    .profile-name{font-size:22px;font-weight:900;margin-bottom:2px}
+    .profile-handle{font-size:13px;color:var(--muted);margin-bottom:12px}
+    .profile-stats{
+      display:flex;
+      justify-content:center;
+      gap:28px;
+      margin-bottom:16px;
+    }
+    .pstat{text-align:center}
+    .pstat-num{font-size:20px;font-weight:900;color:var(--brand)}
+    .pstat-lbl{font-size:11px;color:var(--muted);font-weight:700}
+
+    .pet-info-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+      text-align:left;
+      margin-bottom:16px;
+    }
+    .pet-info-item{
+      background:var(--bg);
+      border-radius:10px;
+      padding:10px 12px;
+    }
+    .pet-info-lbl{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+    .pet-info-val{font-size:13px;font-weight:800;margin-top:2px}
+
+    .edit-btn{
+      background:#fff;
+      border:1.5px solid var(--border);
+      border-radius:20px;
+      padding:7px 20px;
+      font-size:12px;font-weight:800;
+      cursor:pointer;font-family:'Nunito',sans-serif;
+      transition:all .15s;
+    }
+    .edit-btn:hover{border-color:var(--brand2);color:var(--brand2)}
+
+    /* EDIT MODAL */
+    .modal-overlay{
+      position:fixed;top:0;left:0;right:0;bottom:0;
+      background:rgba(0,0,0,.45);
+      display:flex;align-items:center;justify-content:center;
+      z-index:200;padding:20px;
+    }
+    .modal-box{
+      background:#fff;
+      border-radius:20px;
+      padding:24px;
+      width:100%;max-width:400px;
+      max-height:80vh;
+      overflow-y:auto;
+    }
+    .modal-title{font-size:16px;font-weight:900;margin-bottom:16px}
+    .modal-actions{display:flex;gap:8px;margin-top:4px}
+
+    /* POSTS GRID */
+    .posts-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:3px;
+      border-radius:12px;
+      overflow:hidden;
+    }
+    .grid-post{
+      aspect-ratio:1/1;
+      background:var(--bg);
+      overflow:hidden;
+      cursor:pointer;
+      position:relative;
+    }
+    .grid-post img{
+      width:100%;height:100%;
+      object-fit:cover;
+      transition:transform .2s;
+    }
+    .grid-post:hover img{transform:scale(1.05)}
+    .grid-post-overlay{
+      position:absolute;top:0;left:0;right:0;bottom:0;
+      background:rgba(0,0,0,.3);
+      display:flex;align-items:center;justify-content:center;
+      opacity:0;transition:opacity .2s;
+      color:#fff;font-size:13px;font-weight:800;
+    }
+    .grid-post:hover .grid-post-overlay{opacity:1}
+
+    .logout-btn{
+      width:100%;
+      background:#fff;
+      border:1.5px solid #ffb3b3;
+      border-radius:12px;
+      padding:11px;
+      font-size:14px;font-weight:800;
+      color:var(--brand);
+      cursor:pointer;
+      font-family:'Nunito',sans-serif;
+      margin-top:16px;
+      transition:all .15s;
+    }
+    .logout-btn:hover{background:#fff0f0}
+
+    .section-title{
+      font-size:14px;font-weight:900;
+      margin-bottom:12px;
+      display:flex;align-items:center;gap:6px;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Paw<span>Rank</span><small>IU · 2025</small></div>
+  <div style="font-size:13px;font-weight:700;color:var(--muted)" id="nav-user"></div>
+</nav>
+
+<div class="profile-layout">
+
+  <!-- PROFILE CARD -->
+  <div class="profile-card">
+
+    <div class="profile-avatar-wrap">
+      <div class="profile-avatar" id="profile-avatar" onclick="document.getElementById('avatar-input').click()">
+        🐾
+      </div>
+      <div class="avatar-edit" onclick="document.getElementById('avatar-input').click()">✏️</div>
+    </div>
+    <input type="file" id="avatar-input" accept="image/*" onchange="uploadAvatar(event)"/>
+
+    <div class="profile-name" id="profile-pet-name">—</div>
+    <div class="profile-handle" id="profile-handle">@—</div>
+
+    <div class="profile-stats">
+      <div class="pstat">
+        <div class="pstat-num" id="stat-posts">0</div>
+        <div class="pstat-lbl">Posts</div>
+      </div>
+      <div class="pstat">
+        <div class="pstat-num" id="stat-likes">0</div>
+        <div class="pstat-lbl">Likes</div>
+      </div>
+      <div class="pstat">
+        <div class="pstat-num" id="stat-rank">—</div>
+        <div class="pstat-lbl">Rank</div>
+      </div>
+    </div>
+
+    <div class="pet-info-grid" id="pet-info-grid">
+      <div class="pet-info-item">
+        <div class="pet-info-lbl">Pet Type</div>
+        <div class="pet-info-val" id="info-type">—</div>
+      </div>
+      <div class="pet-info-item">
+        <div class="pet-info-lbl">Age</div>
+        <div class="pet-info-val" id="info-age">—</div>
+      </div>
+      <div class="pet-info-item" style="grid-column:span 2">
+        <div class="pet-info-lbl">About</div>
+        <div class="pet-info-val" id="info-bio">—</div>
+      </div>
+    </div>
+
+    <button class="edit-btn" onclick="openEditModal()">✏️ Edit Profile</button>
+    <button class="logout-btn" onclick="handleLogout()">Log Out</button>
+
+  </div>
+
+  <!-- POSTS GRID -->
+  <div class="section-title">📸 My Posts</div>
+  <div class="posts-grid" id="posts-grid">
+    <div style="grid-column:span 3;text-align:center;padding:40px;color:var(--muted)">
+      Loading...
+    </div>
+  </div>
+
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="edit-modal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title">✏️ Edit Pet Profile</div>
+
+    <div class="field">
+      <label>Pet Name</label>
+      <input id="e-petname" placeholder="e.g. Bori"/>
+    </div>
+    <div class="field">
+      <label>Pet Type</label>
+      <select id="e-pettype">
+        <option value="">— Select —</option>
+        <option>Dog</option><option>Cat</option>
+        <option>Rabbit</option><option>Hamster</option>
+        <option>Bird</option><option>Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Birth Year <span style="color:var(--muted);font-weight:600">(optional)</span></label>
+      <input id="e-petyear" type="number" placeholder="e.g. 2021" min="2000" max="2025"/>
+    </div>
+    <div class="field">
+      <label>About <span style="color:var(--muted);font-weight:600">(optional)</span></label>
+      <textarea id="e-petbio" rows="2"
+        style="width:100%;border:1.5px solid var(--border);border-radius:9px;
+               padding:9px 13px;font-size:14px;font-family:'Nunito',sans-serif;
+               outline:none;resize:none;color:var(--text);background:#fff"
+        placeholder="e.g. Loves fetch, hates baths 🛁"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="submit-btn" style="flex:1" onclick="saveProfile()">Save ✅</button>
+      <button class="remove-btn" style="flex:1" onclick="closeEditModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <button class="bottom-btn" onclick="location.href='/feed'">
+    <span class="bottom-icon">🏠</span>Feed
+  </button>
+  <button class="bottom-btn" onclick="location.href='/leaderboard'">
+    <span class="bottom-icon">🏆</span>Ranking
+  </button>
+  <button class="bottom-btn" onclick="location.href='/post'">
+    <span class="bottom-icon">➕</span>Post
+  </button>
+  <button class="bottom-btn active" onclick="location.href='/profile'">
+    <span class="bottom-icon">👤</span>Profile
+  </button>
+</div>
+
+<div class="toast" id="toast-el"></div>
+
+<script>
+// ── Auth ──────────────────────────────────────────────────────────────────
+const ME = localStorage.getItem('pawrank_user');
+if (!ME) window.location.href = '/';
+
+const targetUser = new URLSearchParams(location.search).get('u') || ME;
+const isOwn      = targetUser === ME;
+
+document.getElementById('nav-user').textContent = '@' + ME;
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+function toast(msg) {
+  const el = document.getElementById('toast-el');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ── Load profile ──────────────────────────────────────────────────────────
+async function loadProfile() {
+  const res  = await fetch(`/profile/${targetUser}`);
+  if (!res.ok) { toast('User not found'); return; }
+  const data = await res.json();
+
+  document.getElementById('profile-handle').textContent   = '@' + data.username;
+  document.getElementById('profile-pet-name').textContent = data.pet_name || data.username;
+  document.getElementById('info-type').textContent        = data.pet_type || '—';
+  document.getElementById('info-bio').textContent         = data.pet_bio  || '—';
+
+  if (data.pet_year) {
+    const age = new Date().getFullYear() - data.pet_year;
+    document.getElementById('info-age').textContent = age + ' yrs old';
+  }
+
+  if (data.pet_image) {
+    document.getElementById('profile-avatar').innerHTML =
+      `<img src="${data.pet_image}" alt="pet"/>`;
+  }
+
+  if (!isOwn) {
+    document.querySelector('.edit-btn').style.display  = 'none';
+    document.querySelector('.logout-btn').style.display = 'none';
+  }
+}
+
+// ── Load posts ────────────────────────────────────────────────────────────
+async function loadPosts() {
+  const res  = await fetch(`/posts?username=${targetUser}`);
+  const data = await res.json();
+  const grid = document.getElementById('posts-grid');
+
+  const totalLikes = data.posts.reduce((sum, p) => sum + p.likes, 0);
+  document.getElementById('stat-posts').textContent = data.posts.length;
+  document.getElementById('stat-likes').textContent = totalLikes;
+
+  if (!data.posts.length) {
+    grid.innerHTML = `
+      <div style="grid-column:span 3;text-align:center;padding:40px;color:var(--muted)">
+        No posts yet!${isOwn ? '<br/><button class="submit-btn" style="margin-top:12px;width:auto;padding:9px 20px" onclick="location.href=\'/post\'">Share Your Pet ➕</button>' : ''}
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = data.posts.map(p => `
+    <div class="grid-post">
+      <img src="${p.image_url}" alt="post" onerror="this.parentElement.style.background='#f5f5f5'"/>
+      <div class="grid-post-overlay">❤️ ${p.likes}</div>
+    </div>
+  `).join('');
+}
+
+// ── Load rank ─────────────────────────────────────────────────────────────
+async function loadRank() {
+  const res  = await fetch('/api/leaderboard?limit=200');
+  const data = await res.json();
+  const idx  = data.leaderboard.findIndex(e => e.username === targetUser);
+  document.getElementById('stat-rank').textContent = idx >= 0 ? '#' + (idx + 1) : '—';
+}
+
+// ── Avatar upload ─────────────────────────────────────────────────────────
+async function uploadAvatar(event) {
+  if (!isOwn) return;
+  const file     = event.target.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const res  = await fetch(`/profile/${ME}/image`, { method:'POST', body: formData });
+  const data = await res.json();
+  if (res.ok) {
+    document.getElementById('profile-avatar').innerHTML =
+      `<img src="${data.image_url}" alt="pet"/>`;
+    toast('✅ Photo updated!');
+  }
+}
+
+// ── Edit modal ────────────────────────────────────────────────────────────
+async function openEditModal() {
+  const res  = await fetch(`/profile/${ME}`);
+  const data = await res.json();
+  document.getElementById('e-petname').value = data.pet_name || '';
+  document.getElementById('e-pettype').value = data.pet_type || '';
+  document.getElementById('e-petyear').value = data.pet_year || '';
+  document.getElementById('e-petbio').value  = data.pet_bio  || '';
+  document.getElementById('edit-modal').style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').style.display = 'none';
+}
+
+async function saveProfile() {
+  const body = {
+    pet_name: document.getElementById('e-petname').value.trim() || null,
+    pet_type: document.getElementById('e-pettype').value || null,
+    pet_year: parseInt(document.getElementById('e-petyear').value) || null,
+    pet_bio:  document.getElementById('e-petbio').value.trim()  || null,
+  };
+  const res = await fetch(`/profile/${ME}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (res.ok) {
+    closeEditModal();
+    toast('✅ Profile updated!');
+    loadProfile();
+  } else {
+    toast('❌ Update failed');
+  }
+}
+
+// ── Logout ────────────────────────────────────────────────────────────────
+function handleLogout() {
+  localStorage.removeItem('pawrank_user');
+  localStorage.removeItem('pawrank_pet');
+  window.location.href = '/';
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+loadProfile();
+loadPosts();
+loadRank();
+</script>
+</body>
+</html>

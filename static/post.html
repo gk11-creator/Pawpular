@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PawRank — Share Your Pet</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/style.css"/>
+  <style>
+    .post-layout{
+      max-width:520px;
+      margin:0 auto;
+      padding:20px 16px 80px;
+    }
+    .upload-box{
+      width:100%;
+      aspect-ratio:1/1;
+      border:2px dashed var(--border);
+      border-radius:16px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      transition:border-color .15s,background .15s;
+      overflow:hidden;
+      position:relative;
+      background:#fafafa;
+      margin-bottom:16px;
+    }
+    .upload-box:hover{
+      border-color:var(--brand2);
+      background:#f0fff8;
+    }
+    .upload-box img{
+      width:100%;height:100%;
+      object-fit:cover;
+      position:absolute;top:0;left:0;
+    }
+    .upload-icon{font-size:48px;margin-bottom:8px}
+    .upload-text{font-size:13px;font-weight:700;color:var(--muted)}
+    .upload-sub{font-size:11px;color:var(--muted);margin-top:4px}
+    #image-input{display:none}
+
+    .char-count{
+      font-size:11px;color:var(--muted);
+      text-align:right;margin-top:4px;
+    }
+    .preview-overlay{
+      position:absolute;bottom:0;left:0;right:0;
+      background:linear-gradient(transparent,rgba(0,0,0,.4));
+      padding:12px;
+      display:flex;justify-content:flex-end;
+    }
+    .change-photo{
+      background:rgba(255,255,255,.9);
+      border:none;border-radius:20px;
+      padding:5px 12px;font-size:11px;font-weight:800;
+      cursor:pointer;font-family:'Nunito',sans-serif;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Paw<span>Rank</span><small>IU · 2025</small></div>
+  <div style="font-size:13px;font-weight:700;color:var(--muted)" id="nav-user"></div>
+</nav>
+
+<div class="post-layout">
+
+  <div class="banner banner-teal">
+    <div class="banner-label">Share Your Pet</div>
+    <div class="banner-title">📸 Create a Post</div>
+  </div>
+
+  <!-- IMAGE UPLOAD -->
+  <div class="upload-box" id="upload-box" onclick="document.getElementById('image-input').click()">
+    <div class="upload-icon">📷</div>
+    <div class="upload-text">Tap to upload a photo</div>
+    <div class="upload-sub">JPG, PNG, GIF supported</div>
+  </div>
+  <input type="file" id="image-input" accept="image/*" onchange="previewImage(event)"/>
+
+  <!-- FORM -->
+  <div class="form-card">
+
+    <div class="field">
+      <label>Caption <span style="color:var(--muted);font-weight:600">(optional)</span></label>
+      <textarea id="f-caption" rows="3"
+        style="width:100%;border:1.5px solid var(--border);border-radius:9px;
+               padding:9px 13px;font-size:14px;font-family:'Nunito',sans-serif;
+               outline:none;resize:none;color:var(--text);background:#fff;
+               transition:border-color .15s"
+        placeholder="Write something about your pet..."
+        maxlength="200"
+        oninput="updateCharCount()"
+        onfocus="this.style.borderColor='var(--brand2)'"
+        onblur="this.style.borderColor='var(--border)'"></textarea>
+      <div class="char-count"><span id="char-count">0</span>/200</div>
+    </div>
+
+    <div class="field">
+      <label>Location <span style="color:var(--muted);font-weight:600">(optional)</span></label>
+      <input id="f-location" placeholder="e.g. Bloomington, IN"/>
+    </div>
+
+    <div class="field">
+      <label>Theme</label>
+      <select id="f-theme">
+        <option>Bravest Pet</option>
+        <option>Best Outfit</option>
+        <option>Best Matching Song</option>
+        <option>Smartest Pet</option>
+        <option>Cutest Pet</option>
+        <option>Most Look-alike Owner</option>
+        <option>Best Pose</option>
+      </select>
+    </div>
+
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">
+      📅 Posted as <strong id="post-date"></strong>
+    </div>
+
+    <button class="submit-btn" onclick="submitPost()" id="submit-btn">
+      Share Post 🚀
+    </button>
+
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <button class="bottom-btn" onclick="location.href='/feed'">
+    <span class="bottom-icon">🏠</span>Feed
+  </button>
+  <button class="bottom-btn" onclick="location.href='/leaderboard'">
+    <span class="bottom-icon">🏆</span>Ranking
+  </button>
+  <button class="bottom-btn active" onclick="location.href='/post'">
+    <span class="bottom-icon">➕</span>Post
+  </button>
+  <button class="bottom-btn" onclick="location.href='/profile'">
+    <span class="bottom-icon">👤</span>Profile
+  </button>
+</div>
+
+<div class="toast" id="toast-el"></div>
+
+<script>
+// ── Auth ──────────────────────────────────────────────────────────────────
+const ME = localStorage.getItem('pawrank_user');
+if (!ME) window.location.href = '/';
+document.getElementById('nav-user').textContent = '@' + ME;
+
+// ── Date ──────────────────────────────────────────────────────────────────
+const today = new Date().toLocaleDateString('en-US', {
+  year:'numeric', month:'long', day:'numeric'
+});
+document.getElementById('post-date').textContent = today;
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+function toast(msg) {
+  const el = document.getElementById('toast-el');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ── Image preview ─────────────────────────────────────────────────────────
+let selectedFile = null;
+
+function previewImage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  selectedFile = file;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const box = document.getElementById('upload-box');
+    box.innerHTML = `
+      <img src="${e.target.result}" alt="preview"/>
+      <div class="preview-overlay">
+        <button class="change-photo"
+          onclick="event.stopPropagation();document.getElementById('image-input').click()">
+          Change Photo
+        </button>
+      </div>`;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Char count ────────────────────────────────────────────────────────────
+function updateCharCount() {
+  const val = document.getElementById('f-caption').value.length;
+  document.getElementById('char-count').textContent = val;
+}
+
+// ── Submit ────────────────────────────────────────────────────────────────
+async function submitPost() {
+  if (!selectedFile) {
+    toast('⚠️ Please select a photo first!');
+    return;
+  }
+
+  const caption  = document.getElementById('f-caption').value.trim();
+  const location = document.getElementById('f-location').value.trim();
+  const theme    = document.getElementById('f-theme').value;
+  const btn      = document.getElementById('submit-btn');
+
+  btn.textContent = 'Uploading...';
+  btn.disabled    = true;
+
+  const formData = new FormData();
+  formData.append('username', ME);
+  formData.append('caption',  caption);
+  formData.append('location', location);
+  formData.append('theme',    theme);
+  formData.append('image',    selectedFile);
+
+  try {
+    const res  = await fetch('/upload', { method:'POST', body: formData });
+    const data = await res.json();
+
+    if (res.ok) {
+      toast('✅ Post shared!');
+      setTimeout(() => window.location.href = '/feed', 1000);
+    } else {
+      toast('❌ ' + (data.detail || 'Upload failed'));
+      btn.textContent = 'Share Post 🚀';
+      btn.disabled    = false;
+    }
+  } catch {
+    toast('❌ Cannot reach server');
+    btn.textContent = 'Share Post 🚀';
+    btn.disabled    = false;
+  }
+}
+</script>
+</body>
+</html>

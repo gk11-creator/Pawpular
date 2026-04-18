@@ -2,98 +2,117 @@
 
 const PET_EMOJI = { Dog:'🐕', Cat:'🐈', Rabbit:'🐰', Hamster:'🐹', Bird:'🐦', Other:'🐾' };
 const BG_COLORS = ['#fff5f5','#f0fff8','#f0f5ff','#fffbf0','#fdf0ff','#f0faff'];
-const MEDALS = ['🥇','🥈','🥉'];
+const MEDALS    = ['🥇','🥈','🥉'];
+const PAGE_SIZE = 20;
 
-let allEntries = [];
-let liked = {};
+let allEntries  = [];
+let currentPage = 0;
+let hasMore     = true;
 
-async function loadLeaderboard() {
-  const { ok, data } = await apiGetLeaderboard();
-
-  if (!ok) {
-    document.getElementById('rank-list').innerHTML =
-      `<div style="text-align:center;padding:40px;color:#e74c3c;font-weight:700">
-        ${data.detail}
-      </div>`;
-    return;
+// ── Load leaderboard ──────────────────────────────────────────────────────
+async function loadLeaderboard(reset = true) {
+  if (reset) {
+    allEntries  = [];
+    currentPage = 0;
+    hasMore     = true;
   }
 
-  allEntries = data.leaderboard;
-  document.getElementById('entry-count').textContent = data.total_entries + ' entries';
+  const limit  = PAGE_SIZE;
+  const offset = currentPage * PAGE_SIZE;
+  const res    = await fetch(`/api/leaderboard?limit=${limit + offset}`);
+  const data   = await res.json();
+
+  allEntries = data.leaderboard || [];
+
+  const countEl = document.getElementById('entry-count');
+  if (countEl) countEl.textContent = data.total_entries + ' entries';
+
+  hasMore = allEntries.length >= PAGE_SIZE;
+
   renderRankList();
-  renderHotList();
 }
 
+// ── Render rank list ──────────────────────────────────────────────────────
 function renderRankList() {
   const el = document.getElementById('rank-list');
+  if (!el) return;
 
   if (!allEntries.length) {
-    el.innerHTML = '<div class="loading">No entries yet! Be the first ➕</div>';
+    el.innerHTML = `
+      <div class="loading">
+        No entries yet! Post your pet to join 🐾
+      </div>`;
+    renderLoadMore(false);
     return;
   }
 
-  el.innerHTML = allEntries.map((e, i) => {
-    const cls   = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
-    const emoji = PET_EMOJI[e.pet_type] || '🐾';
-    const bg    = BG_COLORS[i % BG_COLORS.length];
+  const visible = allEntries.slice(0, (currentPage + 1) * PAGE_SIZE);
+
+  el.innerHTML = visible.map((e, i) => {
+    const isTop  = i < 3;
+    const cls    = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : 'normal';
+    const emoji  = PET_EMOJI[e.pet_type] || '🐾';
+    const bg     = isTop ? BG_COLORS[i] : '#f5f5f5';
+    const avatar = e.pet_image
+      ? `<img src="${e.pet_image}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+      : emoji;
+    const badge  = i === 0 ? '🥇 Gold Champion'
+                 : i === 1 ? '🥈 Silver'
+                 : i === 2 ? '🥉 Bronze'
+                 : '';
 
     return `
-      <div class="rank-row ${cls}">
-
+      <div class="rank-row ${cls}" onclick="location.href='/profile?u=${e.username}'">
         <div class="rank-num">
           ${MEDALS[i] || (i + 1)}
         </div>
-
         <div class="rank-pet">
-          <div class="pet-av" style="background:${bg}">${emoji}</div>
+          <div class="pet-av" style="background:${bg}">${avatar}</div>
           <div>
-            <div class="pet-name">${e.pet_name}</div>
-            <div class="pet-owner">@${e.owner}</div>
-            <span class="type-tag">${e.pet_type}</span>
+            <div class="pet-name">${e.pet_name || e.username}</div>
+            <div class="pet-owner">@${e.username}</div>
+            ${e.pet_type ? `<span class="type-tag">${e.pet_type}</span>` : ''}
+            ${badge ? `<span class="badge-tag">${badge}</span>` : ''}
           </div>
         </div>
-
         <div class="score-col">
-          <div class="score-num" id="sc-${e.owner}">❤️ ${e.score}</div>
+          <div class="score-num" id="sc-${e.username}">❤️ ${e.total_likes}</div>
           <div class="score-lbl">likes</div>
         </div>
-
       </div>`;
   }).join('');
+
+  renderLoadMore(allEntries.length > (currentPage + 1) * PAGE_SIZE);
 }
 
-async function loadStats() {
-  const [ir, pr] = await Promise.all([apiGetInfo(), apiGetPerformance()]);
-
-  if (!ir.ok) {
-    document.getElementById('stats-log').textContent = JSON.stringify(ir.data, null, 2);
-    return;
+// ── Load More button ──────────────────────────────────────────────────────
+function renderLoadMore(show) {
+  let btn = document.getElementById('load-more-btn');
+  if (!btn) {
+    btn = document.createElement('div');
+    btn.id = 'load-more-btn';
+    btn.style.textAlign = 'center';
+    btn.style.marginTop = '16px';
+    document.getElementById('rank-list')?.after(btn);
   }
-
-  const s = ir.data.statistics;
-
-  document.getElementById('stats-cards').innerHTML = `
-    <div class="stat-card"><div class="stat-val">${ir.data.total_entries}</div><div class="stat-lbl">Entries</div></div>
-    <div class="stat-card"><div class="stat-val">${s.mean}</div><div class="stat-lbl">Mean</div></div>
-    <div class="stat-card"><div class="stat-val">${s.median}</div><div class="stat-lbl">Median</div></div>
-    <div class="stat-card"><div class="stat-val">${s.min}</div><div class="stat-lbl">Min</div></div>
-    <div class="stat-card"><div class="stat-val">${s.max}</div><div class="stat-lbl">Max</div></div>
-    <div class="stat-card"><div class="stat-val">${s.iqr}</div><div class="stat-lbl">IQR</div></div>
-    <div class="stat-card"><div class="stat-val">${s.q1}</div><div class="stat-lbl">Q1</div></div>
-    <div class="stat-card"><div class="stat-val">${s.q3}</div><div class="stat-lbl">Q3</div></div>
-    <div class="stat-card"><div class="stat-val">${ir.data.top_pet}</div><div class="stat-lbl">Top Pet 🏆</div></div>
-  `;
-
-  if (pr.ok) {
-    document.getElementById('perf-table').innerHTML =
-      Object.entries(pr.data.endpoint_performance).map(([ep, v]) => `
-        <div class="perf-row">
-          <span class="perf-ep">/${ep}</span>
-          <span style="font-size:11px;color:var(--muted)">${v.calls} calls</span>
-          <span class="perf-val">${v.avg_ms !== null ? v.avg_ms + ' ms' : '—'}</span>
-        </div>
-      `).join('');
+  if (show) {
+    btn.innerHTML = `
+      <button onclick="loadMore()"
+        style="background:#fff;border:1.5px solid var(--border);
+               border-radius:20px;padding:10px 28px;font-size:13px;
+               font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;
+               color:var(--muted)">
+        Load More ↓
+      </button>`;
+  } else {
+    btn.innerHTML = '';
   }
+}
 
-  document.getElementById('stats-log').textContent = JSON.stringify(ir.data, null, 2);
+async function loadMore() {
+  currentPage++;
+  const res  = await fetch(`/api/leaderboard?limit=${(currentPage + 1) * PAGE_SIZE}`);
+  const data = await res.json();
+  allEntries = data.leaderboard || [];
+  renderRankList();
 }
