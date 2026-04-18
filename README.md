@@ -17,6 +17,8 @@ API docs: http://localhost:8000/docs
 
 --> Click here **Hosted URL:** https://unhurryingly-interconsonantal-vonda.ngrok-free.dev
 
+*Because it's free version, you have to click visit site to get in!*
+
 **GitHub:** https://github.com/gk11-creator/Pawdium
 
 ---
