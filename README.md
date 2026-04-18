@@ -13,7 +13,7 @@ API docs: http://localhost:8000/docs
 
 ---
 
-## 🌐 Live Demo
+## Live Demo
 
 **Hosted URL:** https://unhurryingly-interconsonantal-vonda.ngrok-free.app
 **GitHub:** https://github.com/gk11-creator/Pawdium
