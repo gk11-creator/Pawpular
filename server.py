@@ -513,6 +513,23 @@ def add_comment(post_id: int, body: CommentBody):
         "bonus_points": bonus_total
     }
 
+@app.delete("/post/{post_id}", tags=["Posts"])
+def delete_post(post_id: int, body: LikeBody):
+    conn = get_db()
+    post = conn.execute(
+        "SELECT username FROM posts WHERE id=?", (post_id,)
+    ).fetchone()
+    if not post:
+        raise HTTPException(404, "Post not found")
+    if post["username"] != body.username:
+        raise HTTPException(403, "Not your post")
+    conn.execute("DELETE FROM posts WHERE id=?", (post_id,))
+    conn.execute("DELETE FROM likes WHERE post_id=?", (post_id,))
+    conn.execute("DELETE FROM comments WHERE post_id=?", (post_id,))
+    conn.commit()
+    conn.close()
+    return {"status": "deleted"}
+
 @app.get("/comments/{post_id}", tags=["Posts"])
 def get_comments(post_id: int):
     conn = get_db()
@@ -707,6 +724,58 @@ def get_performance():
         return {"endpoint_performance": out}
     return track("performance", _)
 
+@app.get("/history", tags=["Statistics"], summary="Score submission history with timestamps")
+def get_history(
+    username: Optional[str] = None,
+    start:    Optional[str] = None,
+    end:      Optional[str] = None,
+    limit:    int = Query(default=50, ge=1, le=500)
+):
+    conn = get_db()
+    query = """
+        SELECT l.username, l.post_id, l.created_at,
+               p.viral_score, p.likes, p.caption
+        FROM likes l
+        JOIN posts p ON l.post_id = p.id
+        WHERE 1=1
+    """
+    params = []
+
+    if username:
+        query += " AND l.username = ?"
+        params.append(username)
+    if start:
+        query += " AND DATE(l.created_at) >= ?"
+        params.append(start)
+    if end:
+        query += " AND DATE(l.created_at) <= ?"
+        params.append(end)
+
+    query += " ORDER BY l.created_at DESC LIMIT ?"
+    params.append(limit)
+
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+
+    return {
+        "total": len(rows),
+        "filters": {
+            "username": username,
+            "start":    start,
+            "end":      end
+        },
+        "history": [
+            {
+                "username":    r["username"],
+                "post_id":     r["post_id"],
+                "timestamp":   r["created_at"],
+                "likes":       r["likes"],
+                "viral_score": r["viral_score"],
+                "caption":     r["caption"] or ""
+            }
+            for r in rows
+        ]
+    }
 
 if __name__ == "__main__":
     import uvicorn

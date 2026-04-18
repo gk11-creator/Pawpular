@@ -3,13 +3,11 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Paw<span>dium</span> — Profile</title>
+  <title>Pawdium — Profile</title>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="/static/style.css"/>
   <style>
-    .profile-layout{
-      max-width:680px;margin:0 auto;padding:20px 16px 80px;
-    }
+    .profile-layout{max-width:680px;margin:0 auto;padding:20px 16px 80px}
     .profile-card{
       background:#fff;border:1.5px solid var(--border);
       border-radius:20px;padding:24px;margin-bottom:20px;text-align:center;
@@ -80,10 +78,16 @@
     .grid-post:hover img{transform:scale(1.05)}
     .grid-post-overlay{
       position:absolute;top:0;left:0;right:0;bottom:0;
-      background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;
+      background:rgba(0,0,0,.3);display:flex;flex-direction:column;
+      align-items:center;justify-content:center;gap:6px;
       opacity:0;transition:opacity .2s;color:#fff;font-size:13px;font-weight:800;
     }
     .grid-post:hover .grid-post-overlay{opacity:1}
+    .delete-btn{
+      background:#e53935;color:#fff;border:none;border-radius:20px;
+      padding:4px 10px;font-size:10px;font-weight:800;cursor:pointer;
+      font-family:'Nunito',sans-serif;
+    }
     .modal-overlay{
       position:fixed;top:0;left:0;right:0;bottom:0;
       background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;
@@ -230,16 +234,19 @@
 
 <div class="bottom-nav">
   <button class="bottom-btn" onclick="location.href='/feed'">
-    <span class="bottom-icon">🏠</span>Feed
+    <img src="/static/images/home.png" style="width:26px;height:26px;object-fit:contain"/>
+    Feed
   </button>
   <button class="bottom-btn" onclick="location.href='/leaderboard'">
-    <span class="bottom-icon">🏆</span>Ranking
+    <img src="/static/images/ranking.png" style="width:26px;height:26px;object-fit:contain"/>
+    Ranking
   </button>
   <button class="bottom-btn" onclick="location.href='/post'">
     <span class="bottom-icon">➕</span>Post
   </button>
   <button class="bottom-btn active" onclick="location.href='/profile'">
-    <span class="bottom-icon">👤</span>Profile
+    <img src="/static/images/profile.png" style="width:26px;height:26px;object-fit:contain"/>
+    Profile
   </button>
 </div>
 
@@ -295,9 +302,9 @@ async function loadProfile() {
       `<img src="${data.pet_image}" alt="pet"/>`;
   }
   if (!isOwn) {
-    document.querySelector('.edit-btn').style.display        = 'none';
-    document.querySelector('.logout-btn').style.display      = 'none';
-    document.getElementById('avatar-edit-btn').style.display = 'none';
+    document.querySelector('.edit-btn').style.display         = 'none';
+    document.querySelector('.logout-btn').style.display       = 'none';
+    document.getElementById('avatar-edit-btn').style.display  = 'none';
     document.getElementById('missions-section').style.display = 'none';
   }
 }
@@ -326,8 +333,27 @@ async function loadPosts() {
     <div class="grid-post">
       <img src="${p.image_url}" alt="post"
         onerror="this.parentElement.style.background='#f5f5f5'"/>
-      <div class="grid-post-overlay">🐾 ${p.likes}</div>
+      <div class="grid-post-overlay">
+        <span>🐾 ${p.likes}</span>
+        ${isOwn ? `<button class="delete-btn"
+          onclick="event.stopPropagation();deletePost(${p.id})">🗑️ Delete</button>` : ''}
+      </div>
     </div>`).join('');
+}
+
+async function deletePost(postId) {
+  if (!confirm('Delete this post?')) return;
+  const res = await fetch(`/post/${postId}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: ME })
+  });
+  if (res.ok) {
+    toast('🗑️ Post deleted!');
+    loadPosts();
+  } else {
+    toast('❌ Failed to delete');
+  }
 }
 
 async function loadRank() {
@@ -389,13 +415,13 @@ async function openEditModal() {
   document.getElementById('e-petyear').value = data.pet_year || '';
   document.getElementById('e-petbio').value  = data.pet_bio  || '';
 
-  const sel         = document.getElementById('e-pettype');
-  const otherInput  = document.getElementById('e-pettype-other');
-  const knownTypes  = ['Dog','Cat','Fish','Bird','Rabbit','Guinea Pig','Hamster','Reptile','Snake','Horse'];
+  const sel        = document.getElementById('e-pettype');
+  const otherInput = document.getElementById('e-pettype-other');
+  const knownTypes = ['Dog','Cat','Fish','Bird','Rabbit','Guinea Pig','Hamster','Reptile','Snake','Horse'];
 
   if (data.pet_type && !knownTypes.includes(data.pet_type)) {
-    sel.value          = 'Other';
-    otherInput.value   = data.pet_type;
+    sel.value              = 'Other';
+    otherInput.value       = data.pet_type;
     otherInput.style.display = 'block';
   } else {
     sel.value = data.pet_type || '';
