@@ -100,4 +100,28 @@ Returns the following metrics for all posts:
 
 ---
 
-## 📁 Project Structure
+## Project Structure
+
+```
+Pawdium/
+├── server.py            # FastAPI backend + all REST API endpoints
+├── openapi.yaml         # OpenAPI 3.0 API specification
+├── requirements.txt     # Python dependencies
+├── pawrank.db           # SQLite database
+├── uploads/             # Uploaded pet images
+└── static/
+    ├── login.html       # Login & register page
+    ├── feed.html        # Community feed
+    ├── post.html        # Upload post with crop tool
+    ├── leaderboard.html # Real-time leaderboard + missions
+    ├── profile.html     # User profile + mission status
+    ├── style.css        # Global styles
+    ├── feed.css         # Feed-specific styles
+    └── images/
+        ├── paw-heart.png
+        ├── paw-heart-filled.png
+        ├── pawdium-logo.png
+        ├── home.png
+        ├── ranking.png
+        └── profile.png
+```
