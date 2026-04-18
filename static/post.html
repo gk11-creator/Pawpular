@@ -11,7 +11,7 @@
       max-width:520px;margin:0 auto;padding:20px 16px 80px;
     }
 
-    /* CROP UPLOAD BOX */
+  
     .upload-box{
       width:100%;aspect-ratio:1/1;
       border:2px dashed var(--border);border-radius:16px;
@@ -27,7 +27,7 @@
     .upload-sub{font-size:11px;color:var(--muted);margin-top:4px}
     #image-input{display:none}
 
-    /* CROP CONTAINER */
+
     .crop-container{
       width:100%;aspect-ratio:1/1;
       position:relative;overflow:hidden;
@@ -97,7 +97,6 @@
     <span style="margin-left:auto">April 2026</span>
   </div>
 
-  <!-- UPLOAD / CROP -->
   <div class="upload-box" id="upload-box"
     onclick="document.getElementById('image-input').click()">
     <div class="upload-icon">📷</div>
@@ -106,7 +105,7 @@
   </div>
   <input type="file" id="image-input" accept="image/*" onchange="onImageSelected(event)"/>
 
-  <!-- CROP CONTROLS (hidden until image selected) -->
+
   <div id="crop-section" style="display:none">
     <div class="crop-container" id="crop-container"
       onmousedown="startDrag(event)"
