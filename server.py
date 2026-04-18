@@ -66,7 +66,10 @@ def generate_daily_missions():
 
 def calculate_viral_score(post_id: int, conn) -> float:
     one_hour_ago = (datetime.now() - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')
-    total  = conn.execute("SELECT likes FROM posts WHERE id=?", (post_id,)).fetchone()["likes"]
+    post = conn.execute("SELECT likes FROM posts WHERE id=?", (post_id,)).fetchone()
+    if not post:
+        return 0.0
+    total  = post["likes"]
     recent = conn.execute(
         "SELECT COUNT(*) as cnt FROM likes WHERE post_id=? AND created_at >= ?",
         (post_id, one_hour_ago)
