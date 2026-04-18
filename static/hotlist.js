@@ -1,9 +1,20 @@
-// ── Hot List (30-min window) ───────────────────────────────────────────────
 
-const HOT_WINDOW = 30 * 60 * 1000; // 30 minutes in ms
+const HOT_WINDOW = 24 * 60 * 60 * 1000; // 24 hours in ms
 
 let hotLog = {};
-let hotResetAt = Date.now() + HOT_WINDOW;
+
+function getNextMidnight() {
+  const now = new Date();
+  const midnight = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1, // tomorrow
+    0, 0, 0, 0         // 00:00:00
+  );
+  return midnight.getTime();
+}
+
+let hotResetAt = getNextMidnight();
 
 function recordHotLike(username) {
   if (!hotLog[username]) hotLog[username] = [];
@@ -12,7 +23,7 @@ function recordHotLike(username) {
 
 function getHotCount(username) {
   if (!hotLog[username]) return 0;
-  const cutoff = hotResetAt - HOT_WINDOW;
+  const cutoff = hotResetAt - HOT_WINDOW; // = today midnight
   return hotLog[username].filter(t => t >= cutoff).length;
 }
 
@@ -56,17 +67,21 @@ function renderHotList() {
 }
 
 function tickCountdown() {
-  const rem = hotResetAt - Date.now();
+  const now = Date.now();
+  const rem = hotResetAt - now;
 
   if (rem <= 0) {
-    // Reset hot window
+    // Reset at midnight
     hotLog = {};
-    hotResetAt = Date.now() + HOT_WINDOW;
+    hotResetAt = getNextMidnight();
     renderHotList();
   }
 
-  const m = Math.floor(rem / 60000);
+  const h = Math.floor(rem / 3600000);
+  const m = Math.floor((rem % 3600000) / 60000);
   const s = Math.floor((rem % 60000) / 1000);
+
   const el = document.getElementById('hot-timer');
-  if (el) el.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  if (el) el.textContent =
+    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }

@@ -60,14 +60,6 @@ function renderRankList() {
           <div class="score-lbl">pts</div>
         </div>
 
-        <div class="like-col">
-          <button
-            class="like-btn ${isLiked ? 'liked' : ''}"
-            onclick="handleLike('${e.owner}', '${e.pet_name}', this)">
-            <span>${isLiked ? '❤️' : '🤍'}</span>
-            <span id="lc-${e.owner}">${lc}</span>
-          </button>
-        </div>
 
       </div>`;
   }).join('');
