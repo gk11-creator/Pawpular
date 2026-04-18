@@ -7,7 +7,7 @@
 
 /* ── THEME BAR ── */
 .theme-bar{
-  background:linear-gradient(135deg,#0039a6,#0057d8);
+  background:linear-gradient(135deg,#b8860b,#d4a853);
   border-radius:12px;
   padding:16px 24px;
   color:#fff;
@@ -15,7 +15,7 @@
   display:flex;
   align-items:center;
   justify-content:space-between;
-  border:1px solid #1a4fd8;
+  border:none
   box-shadow:0 4px 20px rgba(0,57,166,.3);
 }
 .theme-bar-left .theme-label{

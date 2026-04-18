@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 
 os.makedirs("uploads", exist_ok=True)
 
-app = FastAPI(title="PawRank API", version="3.0.0")
+app = FastAPI(title="Pawdium API", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -523,6 +523,14 @@ def get_comments(post_id: int):
     conn.close()
     return {"comments": [dict(r) for r in rows]}
 
+@app.get("/liked/{username}", tags=["Posts"])
+def get_liked_posts(username: str):
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT post_id FROM likes WHERE username=?", (username,)
+    ).fetchall()
+    conn.close()
+    return {"liked_post_ids": [r["post_id"] for r in rows]}
 
 @app.get("/missions", tags=["Missions"])
 def get_missions():

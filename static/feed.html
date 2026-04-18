@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>PawRank — Community Feed</title>
+  <title>Paw<span>dium</span> — Community Feed</title>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="/static/style.css"/>
   <link rel="stylesheet" href="/static/feed.css"/>
@@ -19,15 +19,20 @@
     }
     .mission-toast.show{opacity:1;transform:translateX(0)}
     .mission-toast-title{font-size:11px;opacity:.85;margin-bottom:2px}
-
     .post-username{cursor:pointer}
     .post-username:hover{text-decoration:underline}
+    .paw-icon{
+      width:22px;height:22px;object-fit:contain;
+      transition:opacity .15s,filter .15s;
+    }
+    .paw-icon.off{opacity:.35;filter:grayscale(1)}
+    .paw-icon.on{opacity:1;filter:none}
   </style>
 </head>
 <body>
 
 <nav>
-  <div class="logo">Paw<span>Rank</span></div>
+  <div class="logo">Paw<span>dium</span></div>
   <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.8)" id="nav-user"></div>
 </nav>
 
@@ -38,7 +43,9 @@
       <div class="theme-label">Theme of the Month</div>
       <div class="theme-name">🦁 Bravest Pet</div>
     </div>
-    <div class="theme-bar-right">🏆</div>
+    <div class="theme-bar-right">
+        <img src="/static/images/pawdium-logo.png" style="width:48px;height:48px;object-fit:contain"/>
+    </div>
   </div>
 
   <div class="feed-grid" id="feed-list">
@@ -72,6 +79,9 @@
 </div>
 
 <script>
+const PAW_IMG = '/static/images/paw-heart.png';
+const PAW_IMG_FILLED = '/static/images/paw-heart-filled.png';
+
 const ME = localStorage.getItem('pawrank_user');
 if (!ME) {
   window.location.href = '/';
@@ -111,6 +121,12 @@ function formatDate(str) {
 
 function visitProfile(username) {
   location.href = `/profile?u=${username}`;
+}
+
+function pawBtn(postId, liked, count) {
+  return `<img src="${liked ? PAW_IMG_FILLED : PAW_IMG}"
+               class="paw-icon" style="width:22px;height:22px;object-fit:contain"/>
+          <span class="like-count" id="like-count-${postId}">${count}</span>`;
 }
 
 function renderPosts(posts) {
@@ -160,7 +176,10 @@ function renderPosts(posts) {
         <div class="score-bar-wrap">
           <div class="score-bar-top">
             <span class="score-label">Likes</span>
-            <span class="score-value">🐾 ${p.likes}</span>
+            <span class="score-value">
+              <img src="${PAW_IMG}" style="width:14px;height:14px;object-fit:contain;vertical-align:middle"/>
+              <span id="score-val-${p.id}">${p.likes}</span>
+            </span>
           </div>
           <div class="score-bar">
             <div class="score-bar-fill" style="width:${pct}%"></div>
@@ -177,8 +196,7 @@ function renderPosts(posts) {
           <button class="action-btn ${isLiked ? 'liked' : ''}"
             id="like-btn-${p.id}"
             onclick="handleLike(${p.id})">
-            ${isLiked ? '🐾' : '🐾'}
-            <span class="like-count" id="like-count-${p.id}">${p.likes}</span>
+            ${pawBtn(p.id, isLiked, p.likes)}
           </button>
           <button class="action-btn" onclick="focusComment(${p.id})">
             💬 <span id="comment-count-${p.id}">0</span>
@@ -206,9 +224,15 @@ function renderPosts(posts) {
 }
 
 async function loadFeed() {
-  const res  = await fetch('/posts');
-  const data = await res.json();
-  allPosts   = data.posts;
+  const [feedRes, likedRes] = await Promise.all([
+    fetch('/posts'),
+    fetch(`/liked/${ME}`)
+  ]);
+  const feedData  = await feedRes.json();
+  const likedData = await likedRes.json();
+
+  allPosts = feedData.posts;
+  likedData.liked_post_ids.forEach(id => likedPosts.add(id));
   renderPosts(allPosts);
 }
 
@@ -224,15 +248,15 @@ async function handleLike(postId) {
   if (data.status === 'liked') {
     likedPosts.add(postId);
     btn.classList.add('liked');
-    btn.innerHTML = `🐾 <span class="like-count" id="like-count-${postId}">${data.likes}</span>`;
-    toast('🐾 Liked!');
+    btn.innerHTML = pawBtn(postId, true, data.likes);
+    toast('Liked!');
     if (data.missions_completed?.length) {
       showMissionToast(data.missions_completed, data.bonus_points);
     }
   } else {
     likedPosts.delete(postId);
     btn.classList.remove('liked');
-    btn.innerHTML = `🐾 <span class="like-count" id="like-count-${postId}">${data.likes}</span>`;
+    btn.innerHTML = pawBtn(postId, false, data.likes);
     toast('Unliked');
   }
 
@@ -242,9 +266,9 @@ async function handleLike(postId) {
     const maxLikes = Math.max(...allPosts.map(p => p.likes), 1);
     const pct  = Math.round((data.likes / maxLikes) * 100);
     const fill = document.querySelector(`#post-${postId} .score-bar-fill`);
-    const val  = document.querySelector(`#post-${postId} .score-value`);
+    const val  = document.getElementById(`score-val-${postId}`);
     if (fill) fill.style.width = pct + '%';
-    if (val)  val.textContent  = '🐾 ' + data.likes;
+    if (val)  val.textContent  = data.likes;
   }
 }
 
